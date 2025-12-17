@@ -3,12 +3,19 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import './App.css';
 import Toolbar from './Toolbar';
 import Canvas from './Canvas';
-import { startP2P } from './p2p/startP2P'
+import { startP2P, scheduleStopP2P, getP2PNode } from './p2p/startP2P'
 // --- App Name & Slogan ---
 const APP_NAME = "Teach Bound";
 const APP_SUBTITLE = "Digital White Board";
 
 function App() {
+  const [p2pStatus, setP2pStatus] = useState({
+    state: 'disabled', // disabled | starting | running | error
+    peerId: null,
+    peers: 0,
+    error: null
+  })
+
   useEffect(() => {
     const signalingAddr = process.env.REACT_APP_P2P_SIGNALING_ADDR
     const legacyHostAddr = process.env.REACT_APP_P2P_HOST
@@ -22,7 +29,61 @@ function App() {
     const room = process.env.REACT_APP_P2P_ROOM
     const topic = room ? `teachbound/${room}` : undefined
 
-    startP2P(bootstrapAddr, { topic }).catch(console.error)
+    let isActive = true
+    let intervalId = null
+
+    setP2pStatus({
+      state: 'starting',
+      peerId: null,
+      peers: 0,
+      error: null
+    })
+
+    startP2P(bootstrapAddr, { topic })
+      .then((node) => {
+        if (!isActive) return
+        setP2pStatus((prev) => ({
+          ...prev,
+          state: 'running',
+          peerId: node.peerId?.toString?.() ?? String(node.peerId)
+        }))
+
+        const updatePeers = () => {
+          const n = getP2PNode()
+          if (!n) return
+
+          const conns = typeof n.getConnections === 'function' ? n.getConnections() : []
+          const peerSet = new Set()
+          for (const c of conns) {
+            const rp = c?.remotePeer?.toString?.()
+            if (rp) peerSet.add(rp)
+          }
+
+          setP2pStatus((prev) => ({
+            ...prev,
+            peers: peerSet.size
+          }))
+        }
+
+        updatePeers()
+        intervalId = window.setInterval(updatePeers, 1000)
+      })
+      .catch((err) => {
+        console.error(err)
+        if (!isActive) return
+        setP2pStatus({
+          state: 'error',
+          peerId: null,
+          peers: 0,
+          error: err?.message ?? String(err)
+        })
+      })
+
+    return () => {
+      isActive = false
+      if (intervalId != null) window.clearInterval(intervalId)
+      scheduleStopP2P(0)
+    }
   }, [])
   
   const [selectedTool, setSelectedTool] = useState('pen');
@@ -542,6 +603,27 @@ function App() {
           <h1 className="app-title">{APP_NAME}</h1>
           <span className="app-subtitle">{APP_SUBTITLE}</span>
         </div>
+        {p2pStatus.state !== 'disabled' && (
+          <div className="p2p-status">
+            <span className="p2p-status-label">P2P:</span>{' '}
+            {p2pStatus.state === 'starting' && 'starting…'}
+            {p2pStatus.state === 'running' && (
+              <>
+                running ({p2pStatus.peers} peers){' '}
+                {p2pStatus.peerId && (
+                  <span className="p2p-status-peerid">
+                    peerId <code>{p2pStatus.peerId}</code>
+                  </span>
+                )}
+              </>
+            )}
+            {p2pStatus.state === 'error' && (
+              <>
+                error <code>{p2pStatus.error}</code>
+              </>
+            )}
+          </div>
+        )}
         <p className="app-slogan">
           <a href="https://github.com/sai-educ/TeachBound" target="_blank" rel="noopener noreferrer">Open source</a>, ad-free, and 100% free to use. {' '}
           <a href="https://forms.gle/WShMfsvVaLc34QeaA" target="_blank" rel="noopener noreferrer">Please provide feedback or suggestions!</a>

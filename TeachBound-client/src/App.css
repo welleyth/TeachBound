@@ -65,6 +65,26 @@
   color: #1d4ed8;
 }
 
+/* --- P2P status (debug-level, minimal UI) --- */
+.p2p-status {
+  margin-top: 6px;
+  font-size: 0.85rem;
+  opacity: 0.85;
+}
+
+.p2p-status code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.82em;
+}
+
+.p2p-status-label {
+  font-weight: 600;
+}
+
+.p2p-status-peerid {
+  margin-left: 6px;
+}
+
 .main-content-wrapper {
   flex-grow: 1;
   display: flex;

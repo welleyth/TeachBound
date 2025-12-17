@@ -14,6 +14,14 @@ let _node = null
 let _onMessage = new Set()
 let _removeMessageListener = null
 let _removePeerDiscoveryListener = null
+let _stopTimer = null
+
+function _clearStopTimer() {
+  if (_stopTimer != null) {
+    clearTimeout(_stopTimer)
+    _stopTimer = null
+  }
+}
 
 function _attachPubsubListener(node) {
   const handler = (evt) => {
@@ -83,6 +91,9 @@ export async function startP2P(bootstrapAddr, opts = {}) {
   const { topic = DEFAULT_P2P_TOPIC, onMessage, publishHello = true } = opts
   if (onMessage) _onMessage.add(onMessage)
 
+  // If a stop was scheduled (e.g. React StrictMode cleanup), cancel it.
+  _clearStopTimer()
+
   if (_nodePromise) return _nodePromise
 
   _nodePromise = (async () => {
@@ -132,6 +143,8 @@ export function getP2PNode() {
 }
 
 export async function stopP2P() {
+  _clearStopTimer()
+
   // If start never succeeded, still clear state.
   const node = await _nodePromise?.catch(() => null)
   _nodePromise = null
@@ -147,4 +160,16 @@ export async function stopP2P() {
     _removePeerDiscoveryListener = null
   }
   await node.stop()
+}
+
+/**
+ * Schedule stopping the singleton node after `delayMs`.
+ * This is useful for React StrictMode double-mount in dev: cleanup schedules a stop,
+ * the immediate remount cancels it by calling `startP2P`.
+ */
+export function scheduleStopP2P(delayMs = 0) {
+  _clearStopTimer()
+  _stopTimer = setTimeout(() => {
+    stopP2P().catch((err) => console.error('[P2P] stop failed', err))
+  }, delayMs)
 }
