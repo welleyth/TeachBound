@@ -21,7 +21,11 @@ function App() {
     state: 'disabled', // disabled | starting | running | error
     peerId: null,
     peers: 0,
-    error: null
+    error: null,
+    room: null,
+    topic: null,
+    sync: 'idle', // idle | requesting | synced
+    lastSyncAt: null
   })
 
   const isApplyingRemoteRef = useRef(false)
@@ -93,6 +97,11 @@ function App() {
               setHistory([chosen.elements])
               setHistoryStep(0)
               canvasRef.current?.clearSelection?.()
+              setP2pStatus((prev) => ({
+                ...prev,
+                sync: 'synced',
+                lastSyncAt: Date.now()
+              }))
             } finally {
               isApplyingRemoteRef.current = false
             }
@@ -178,7 +187,11 @@ function App() {
       state: 'starting',
       peerId: null,
       peers: 0,
-      error: null
+      error: null,
+      room: room ?? null,
+      topic: topic ?? null,
+      sync: 'idle',
+      lastSyncAt: null
     })
 
     startP2P(bootstrapAddr, { topic })
@@ -226,6 +239,7 @@ function App() {
             !hasLocalEditsSinceP2PStartRef.current
           ) {
             try {
+              setP2pStatus((prev) => ({ ...prev, sync: 'requesting' }))
               publishP2PEvent(P2P_EVENT_TYPES.SNAPSHOT_REQUEST, {})
               didRequestSnapshotRef.current = true
             } catch (err) {
@@ -332,6 +346,8 @@ function App() {
           }
           snapshotCandidateRef.current = null
 
+          setP2pStatus((prev) => (prev.sync === 'synced' ? { ...prev, sync: 'idle' } : prev))
+
           const before = Array.isArray(currentElementsState) ? currentElementsState : []
           const after = updatedElements
 
@@ -381,6 +397,39 @@ function App() {
 
   // Assign during render so it's available before effects (avoids missing early p2p events).
   updateElementsAndHistoryRef.current = updateElementsAndHistory
+
+  const handleP2PResync = useCallback(() => {
+    if (!getP2PNode()) return
+    if (p2pStatus.peers <= 0) {
+      window.alert('No peers connected yet.')
+      return
+    }
+
+    const confirmed = window.confirm(
+      'Resync will overwrite your current board with a snapshot from peers. Continue?'
+    )
+    if (!confirmed) return
+
+    hasLocalEditsSinceP2PStartRef.current = false
+    hasAppliedSnapshotRef.current = false
+    didRequestSnapshotRef.current = true
+    snapshotCandidateRef.current = null
+    if (snapshotTimerRef.current != null) {
+      window.clearTimeout(snapshotTimerRef.current)
+      snapshotTimerRef.current = null
+    }
+
+    setP2pStatus((prev) => ({
+      ...prev,
+      sync: 'requesting'
+    }))
+
+    try {
+      publishP2PEvent(P2P_EVENT_TYPES.SNAPSHOT_REQUEST, { reason: 'manual' })
+    } catch (err) {
+      console.debug('[P2P] failed to publish snapshot request', err)
+    }
+  }, [p2pStatus.peers])
 
   const handleDrawingOrElementComplete = useCallback((newElement) => {
     updateElementsAndHistory((prevElements) => {
@@ -856,11 +905,33 @@ function App() {
             {p2pStatus.state === 'running' && (
               <>
                 running ({p2pStatus.peers} peers){' '}
+                {p2pStatus.room && (
+                  <>
+                    · room <code>{p2pStatus.room}</code>{' '}
+                  </>
+                )}
+                {p2pStatus.sync && (
+                  <>
+                    · sync <code>{p2pStatus.sync}</code>{' '}
+                  </>
+                )}
+                <button
+                  type="button"
+                  className="p2p-resync-button"
+                  onClick={handleP2PResync}
+                  disabled={p2pStatus.peers <= 0}
+                  title={p2pStatus.peers <= 0 ? 'No peers connected' : 'Request snapshot from peers'}
+                >
+                  Resync
+                </button>{' '}
                 {p2pStatus.peerId && (
                   <span className="p2p-status-peerid">
                     peerId <code>{p2pStatus.peerId}</code>
                   </span>
                 )}
+                <span className="p2p-status-peerid">
+                  · elements <code>{elements.length}</code>
+                </span>
               </>
             )}
             {p2pStatus.state === 'error' && (

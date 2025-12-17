@@ -85,6 +85,25 @@
   margin-left: 6px;
 }
 
+.p2p-resync-button {
+  margin-left: 6px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  color: #374151;
+  cursor: pointer;
+}
+
+.p2p-resync-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.p2p-resync-button:hover:not(:disabled) {
+  border-color: #9ca3af;
+}
+
 .main-content-wrapper {
   flex-grow: 1;
   display: flex;
