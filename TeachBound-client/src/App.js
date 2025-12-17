@@ -26,6 +26,12 @@ function App() {
 
   const isApplyingRemoteRef = useRef(false)
   const suppressBroadcastOnceRef = useRef(false)
+  const hasLocalEditsSinceP2PStartRef = useRef(false)
+  const hasAppliedSnapshotRef = useRef(false)
+  const didRequestSnapshotRef = useRef(false)
+  const snapshotCandidateRef = useRef(null) // { elements: any[], count: number }
+  const snapshotTimerRef = useRef(null)
+  const elementsRef = useRef([])
 
   // Keep a ref to the latest updateElementsAndHistory to avoid stale closures in p2p listeners.
   const updateElementsAndHistoryRef = useRef(null)
@@ -38,6 +44,64 @@ function App() {
     if (!evt || typeof evt.type !== 'string') return
 
     switch (evt.type) {
+      case P2P_EVENT_TYPES.SNAPSHOT_REQUEST: {
+        // Broadcast response with the current board state.
+        try {
+          publishP2PEvent(P2P_EVENT_TYPES.SNAPSHOT_RESPONSE, {
+            elements: Array.isArray(elementsRef.current) ? elementsRef.current : []
+          })
+        } catch (err) {
+          console.debug('[P2P] failed to publish snapshot response', err)
+        }
+        return
+      }
+
+      case P2P_EVENT_TYPES.SNAPSHOT_RESPONSE: {
+        if (hasAppliedSnapshotRef.current) return
+        if (hasLocalEditsSinceP2PStartRef.current) return
+
+        const incoming = evt?.payload?.elements
+        if (!Array.isArray(incoming)) return
+
+        const candidate = { elements: incoming, count: incoming.length }
+        const best = snapshotCandidateRef.current
+        if (!best || candidate.count > best.count) snapshotCandidateRef.current = candidate
+
+        if (snapshotTimerRef.current == null) {
+          snapshotTimerRef.current = window.setTimeout(() => {
+            snapshotTimerRef.current = null
+
+            // If the user made local edits while we waited, don't overwrite them.
+            if (hasLocalEditsSinceP2PStartRef.current) {
+              snapshotCandidateRef.current = null
+              return
+            }
+            if (hasAppliedSnapshotRef.current) {
+              snapshotCandidateRef.current = null
+              return
+            }
+
+            const chosen = snapshotCandidateRef.current
+            snapshotCandidateRef.current = null
+            if (!chosen) return
+
+            hasAppliedSnapshotRef.current = true
+            didRequestSnapshotRef.current = true
+
+            isApplyingRemoteRef.current = true
+            try {
+              setHistory([chosen.elements])
+              setHistoryStep(0)
+              canvasRef.current?.clearSelection?.()
+            } finally {
+              isApplyingRemoteRef.current = false
+            }
+          }, 1000)
+        }
+
+        return
+      }
+
       case P2P_EVENT_TYPES.ELEMENT_UPSERT: {
         const incoming = evt?.payload?.elements
         if (!Array.isArray(incoming) || incoming.length === 0) return
@@ -126,6 +190,16 @@ function App() {
           peerId: node.peerId?.toString?.() ?? String(node.peerId)
         }))
 
+        // Reset snapshot negotiation state for this session.
+        hasLocalEditsSinceP2PStartRef.current = false
+        hasAppliedSnapshotRef.current = false
+        didRequestSnapshotRef.current = false
+        snapshotCandidateRef.current = null
+        if (snapshotTimerRef.current != null) {
+          window.clearTimeout(snapshotTimerRef.current)
+          snapshotTimerRef.current = null
+        }
+
         removeEventListener = addP2PEventListener(applyRemoteP2PEvent)
 
         const updatePeers = () => {
@@ -143,6 +217,21 @@ function App() {
             ...prev,
             peers: peerSet.size
           }))
+
+          // Late-join sync: request a snapshot once we have at least one peer.
+          if (
+            peerSet.size > 0 &&
+            !didRequestSnapshotRef.current &&
+            !hasAppliedSnapshotRef.current &&
+            !hasLocalEditsSinceP2PStartRef.current
+          ) {
+            try {
+              publishP2PEvent(P2P_EVENT_TYPES.SNAPSHOT_REQUEST, {})
+              didRequestSnapshotRef.current = true
+            } catch (err) {
+              console.debug('[P2P] failed to publish snapshot request', err)
+            }
+          }
         }
 
         updatePeers()
@@ -163,6 +252,11 @@ function App() {
       isActive = false
       if (intervalId != null) window.clearInterval(intervalId)
       removeEventListener?.()
+      if (snapshotTimerRef.current != null) {
+        window.clearTimeout(snapshotTimerRef.current)
+        snapshotTimerRef.current = null
+      }
+      snapshotCandidateRef.current = null
       scheduleStopP2P(0)
     }
   }, [applyRemoteP2PEvent])
@@ -200,6 +294,8 @@ function App() {
   const [lastSaveTime, setLastSaveTime] = useState(Date.now());
   const [showSaveIndicator, setShowSaveIndicator] = useState(false);
   const elements = history[historyStep] || [];
+  // Keep current elements available to p2p listeners without re-subscribing.
+  elementsRef.current = elements
 
   const canvasRef = useRef(null);
 
@@ -228,6 +324,14 @@ function App() {
 
       if (!suppressBroadcast && getP2PNode()) {
         try {
+          hasLocalEditsSinceP2PStartRef.current = true
+          // If we're about to broadcast local edits, don't allow a pending snapshot to overwrite them.
+          if (snapshotTimerRef.current != null) {
+            window.clearTimeout(snapshotTimerRef.current)
+            snapshotTimerRef.current = null
+          }
+          snapshotCandidateRef.current = null
+
           const before = Array.isArray(currentElementsState) ? currentElementsState : []
           const after = updatedElements
 
