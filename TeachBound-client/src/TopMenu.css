@@ -24,7 +24,9 @@
   cursor: pointer;
   font-size: 14px;
   color: #495057;
-  transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+  transition:
+    background-color 0.2s ease-in-out,
+    border-color 0.2s ease-in-out;
 }
 
 .menu-button:hover:not(:disabled) {

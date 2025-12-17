@@ -8,13 +8,13 @@ import {
   getP2PNode,
   publishP2PEvent,
   scheduleStopP2P,
-  startP2P
-} from './p2p/startP2P'
-import { P2P_EVENT_TYPES } from './p2p/protocol'
+  startP2P,
+} from './p2p/startP2P';
+import { P2P_EVENT_TYPES } from './p2p/protocol';
 import { generateElementId } from './utils/ids';
 // --- App Name & Slogan ---
-const APP_NAME = "Teach Bound";
-const APP_SUBTITLE = "Digital White Board";
+const APP_NAME = 'Teach Bound';
+const APP_SUBTITLE = 'Digital White Board';
 
 function App() {
   const [p2pStatus, setP2pStatus] = useState({
@@ -25,163 +25,163 @@ function App() {
     room: null,
     topic: null,
     sync: 'idle', // idle | requesting | synced
-    lastSyncAt: null
-  })
+    lastSyncAt: null,
+  });
 
-  const isApplyingRemoteRef = useRef(false)
-  const suppressBroadcastOnceRef = useRef(false)
-  const hasLocalEditsSinceP2PStartRef = useRef(false)
-  const hasAppliedSnapshotRef = useRef(false)
-  const didRequestSnapshotRef = useRef(false)
-  const snapshotCandidateRef = useRef(null) // { elements: any[], count: number }
-  const snapshotTimerRef = useRef(null)
-  const elementsRef = useRef([])
+  const isApplyingRemoteRef = useRef(false);
+  const suppressBroadcastOnceRef = useRef(false);
+  const hasLocalEditsSinceP2PStartRef = useRef(false);
+  const hasAppliedSnapshotRef = useRef(false);
+  const didRequestSnapshotRef = useRef(false);
+  const snapshotCandidateRef = useRef(null); // { elements: any[], count: number }
+  const snapshotTimerRef = useRef(null);
+  const elementsRef = useRef([]);
 
   // Keep a ref to the latest updateElementsAndHistory to avoid stale closures in p2p listeners.
-  const updateElementsAndHistoryRef = useRef(null)
+  const updateElementsAndHistoryRef = useRef(null);
 
   const applyRemoteP2PEvent = useCallback((evt) => {
-    const node = getP2PNode()
-    const myPeerId = node?.peerId?.toString?.() ?? (node?.peerId ? String(node.peerId) : null)
-    if (myPeerId && evt?.from === myPeerId) return
+    const node = getP2PNode();
+    const myPeerId = node?.peerId?.toString?.() ?? (node?.peerId ? String(node.peerId) : null);
+    if (myPeerId && evt?.from === myPeerId) return;
 
-    if (!evt || typeof evt.type !== 'string') return
+    if (!evt || typeof evt.type !== 'string') return;
 
     switch (evt.type) {
       case P2P_EVENT_TYPES.SNAPSHOT_REQUEST: {
         // Broadcast response with the current board state.
         try {
           publishP2PEvent(P2P_EVENT_TYPES.SNAPSHOT_RESPONSE, {
-            elements: Array.isArray(elementsRef.current) ? elementsRef.current : []
-          })
+            elements: Array.isArray(elementsRef.current) ? elementsRef.current : [],
+          });
         } catch (err) {
-          console.debug('[P2P] failed to publish snapshot response', err)
+          console.debug('[P2P] failed to publish snapshot response', err);
         }
-        return
+        return;
       }
 
       case P2P_EVENT_TYPES.SNAPSHOT_RESPONSE: {
-        if (hasAppliedSnapshotRef.current) return
-        if (hasLocalEditsSinceP2PStartRef.current) return
+        if (hasAppliedSnapshotRef.current) return;
+        if (hasLocalEditsSinceP2PStartRef.current) return;
 
-        const incoming = evt?.payload?.elements
-        if (!Array.isArray(incoming)) return
+        const incoming = evt?.payload?.elements;
+        if (!Array.isArray(incoming)) return;
 
-        const candidate = { elements: incoming, count: incoming.length }
-        const best = snapshotCandidateRef.current
-        if (!best || candidate.count > best.count) snapshotCandidateRef.current = candidate
+        const candidate = { elements: incoming, count: incoming.length };
+        const best = snapshotCandidateRef.current;
+        if (!best || candidate.count > best.count) snapshotCandidateRef.current = candidate;
 
         if (snapshotTimerRef.current == null) {
           snapshotTimerRef.current = window.setTimeout(() => {
-            snapshotTimerRef.current = null
+            snapshotTimerRef.current = null;
 
             // If the user made local edits while we waited, don't overwrite them.
             if (hasLocalEditsSinceP2PStartRef.current) {
-              snapshotCandidateRef.current = null
-              return
+              snapshotCandidateRef.current = null;
+              return;
             }
             if (hasAppliedSnapshotRef.current) {
-              snapshotCandidateRef.current = null
-              return
+              snapshotCandidateRef.current = null;
+              return;
             }
 
-            const chosen = snapshotCandidateRef.current
-            snapshotCandidateRef.current = null
-            if (!chosen) return
+            const chosen = snapshotCandidateRef.current;
+            snapshotCandidateRef.current = null;
+            if (!chosen) return;
 
-            hasAppliedSnapshotRef.current = true
-            didRequestSnapshotRef.current = true
+            hasAppliedSnapshotRef.current = true;
+            didRequestSnapshotRef.current = true;
 
-            isApplyingRemoteRef.current = true
+            isApplyingRemoteRef.current = true;
             try {
-              setHistory([chosen.elements])
-              setHistoryStep(0)
-              canvasRef.current?.clearSelection?.()
+              setHistory([chosen.elements]);
+              setHistoryStep(0);
+              canvasRef.current?.clearSelection?.();
               setP2pStatus((prev) => ({
                 ...prev,
                 sync: 'synced',
-                lastSyncAt: Date.now()
-              }))
+                lastSyncAt: Date.now(),
+              }));
             } finally {
-              isApplyingRemoteRef.current = false
+              isApplyingRemoteRef.current = false;
             }
-          }, 1000)
+          }, 1000);
         }
 
-        return
+        return;
       }
 
       case P2P_EVENT_TYPES.ELEMENT_UPSERT: {
-        const incoming = evt?.payload?.elements
-        if (!Array.isArray(incoming) || incoming.length === 0) return
+        const incoming = evt?.payload?.elements;
+        if (!Array.isArray(incoming) || incoming.length === 0) return;
 
-        suppressBroadcastOnceRef.current = true
+        suppressBroadcastOnceRef.current = true;
         updateElementsAndHistoryRef.current?.((prevElements) => {
-          const indexById = new Map(prevElements.map((el, idx) => [String(el.id), idx]))
-          const next = [...prevElements]
+          const indexById = new Map(prevElements.map((el, idx) => [String(el.id), idx]));
+          const next = [...prevElements];
 
           for (const el of incoming) {
-            if (!el || el.id == null) continue
-            const key = String(el.id)
-            const idx = indexById.get(key)
+            if (!el || el.id == null) continue;
+            const key = String(el.id);
+            const idx = indexById.get(key);
             if (idx == null) {
-              indexById.set(key, next.length)
-              next.push(el)
+              indexById.set(key, next.length);
+              next.push(el);
             } else {
-              next[idx] = el
+              next[idx] = el;
             }
           }
 
-          return next
-        })
-        return
+          return next;
+        });
+        return;
       }
 
       case P2P_EVENT_TYPES.ELEMENT_DELETE: {
-        const ids = evt?.payload?.ids
-        if (!Array.isArray(ids) || ids.length === 0) return
-        const idsSet = new Set(ids.map((id) => String(id)))
+        const ids = evt?.payload?.ids;
+        if (!Array.isArray(ids) || ids.length === 0) return;
+        const idsSet = new Set(ids.map((id) => String(id)));
 
-        suppressBroadcastOnceRef.current = true
+        suppressBroadcastOnceRef.current = true;
         updateElementsAndHistoryRef.current?.((prevElements) =>
           prevElements.filter((el) => !idsSet.has(String(el.id)))
-        )
-        return
+        );
+        return;
       }
 
       case P2P_EVENT_TYPES.CANVAS_CLEAR: {
-        isApplyingRemoteRef.current = true
+        isApplyingRemoteRef.current = true;
         try {
-          setHistory([[]])
-          setHistoryStep(0)
-          canvasRef.current?.clearSelection?.()
+          setHistory([[]]);
+          setHistoryStep(0);
+          canvasRef.current?.clearSelection?.();
         } finally {
-          isApplyingRemoteRef.current = false
+          isApplyingRemoteRef.current = false;
         }
-        return
+        return;
       }
 
       default:
-        return
+        return;
     }
-  }, [])
+  }, []);
 
   useEffect(() => {
-    const signalingAddr = process.env.REACT_APP_P2P_SIGNALING_ADDR
-    const legacyHostAddr = process.env.REACT_APP_P2P_HOST
-    const bootstrapAddr = signalingAddr ?? legacyHostAddr
+    const signalingAddr = process.env.REACT_APP_P2P_SIGNALING_ADDR;
+    const legacyHostAddr = process.env.REACT_APP_P2P_HOST;
+    const bootstrapAddr = signalingAddr ?? legacyHostAddr;
 
     if (!bootstrapAddr) {
-      console.warn('No REACT_APP_P2P_SIGNALING_ADDR (or legacy REACT_APP_P2P_HOST) set')
-      return
+      console.warn('No REACT_APP_P2P_SIGNALING_ADDR (or legacy REACT_APP_P2P_HOST) set');
+      return;
     }
 
-    const room = process.env.REACT_APP_P2P_ROOM
-    const topic = room ? `teachbound/${room}` : undefined
+    const room = process.env.REACT_APP_P2P_ROOM;
+    const topic = room ? `teachbound/${room}` : undefined;
 
-    let isActive = true
-    let intervalId = null
-    let removeEventListener = null
+    let isActive = true;
+    let intervalId = null;
+    let removeEventListener = null;
 
     setP2pStatus({
       state: 'starting',
@@ -191,45 +191,45 @@ function App() {
       room: room ?? null,
       topic: topic ?? null,
       sync: 'idle',
-      lastSyncAt: null
-    })
+      lastSyncAt: null,
+    });
 
     startP2P(bootstrapAddr, { topic })
       .then((node) => {
-        if (!isActive) return
+        if (!isActive) return;
         setP2pStatus((prev) => ({
           ...prev,
           state: 'running',
-          peerId: node.peerId?.toString?.() ?? String(node.peerId)
-        }))
+          peerId: node.peerId?.toString?.() ?? String(node.peerId),
+        }));
 
         // Reset snapshot negotiation state for this session.
-        hasLocalEditsSinceP2PStartRef.current = false
-        hasAppliedSnapshotRef.current = false
-        didRequestSnapshotRef.current = false
-        snapshotCandidateRef.current = null
+        hasLocalEditsSinceP2PStartRef.current = false;
+        hasAppliedSnapshotRef.current = false;
+        didRequestSnapshotRef.current = false;
+        snapshotCandidateRef.current = null;
         if (snapshotTimerRef.current != null) {
-          window.clearTimeout(snapshotTimerRef.current)
-          snapshotTimerRef.current = null
+          window.clearTimeout(snapshotTimerRef.current);
+          snapshotTimerRef.current = null;
         }
 
-        removeEventListener = addP2PEventListener(applyRemoteP2PEvent)
+        removeEventListener = addP2PEventListener(applyRemoteP2PEvent);
 
         const updatePeers = () => {
-          const n = getP2PNode()
-          if (!n) return
+          const n = getP2PNode();
+          if (!n) return;
 
-          const conns = typeof n.getConnections === 'function' ? n.getConnections() : []
-          const peerSet = new Set()
+          const conns = typeof n.getConnections === 'function' ? n.getConnections() : [];
+          const peerSet = new Set();
           for (const c of conns) {
-            const rp = c?.remotePeer?.toString?.()
-            if (rp) peerSet.add(rp)
+            const rp = c?.remotePeer?.toString?.();
+            if (rp) peerSet.add(rp);
           }
 
           setP2pStatus((prev) => ({
             ...prev,
-            peers: peerSet.size
-          }))
+            peers: peerSet.size,
+          }));
 
           // Late-join sync: request a snapshot once we have at least one peer.
           if (
@@ -239,42 +239,42 @@ function App() {
             !hasLocalEditsSinceP2PStartRef.current
           ) {
             try {
-              setP2pStatus((prev) => ({ ...prev, sync: 'requesting' }))
-              publishP2PEvent(P2P_EVENT_TYPES.SNAPSHOT_REQUEST, {})
-              didRequestSnapshotRef.current = true
+              setP2pStatus((prev) => ({ ...prev, sync: 'requesting' }));
+              publishP2PEvent(P2P_EVENT_TYPES.SNAPSHOT_REQUEST, {});
+              didRequestSnapshotRef.current = true;
             } catch (err) {
-              console.debug('[P2P] failed to publish snapshot request', err)
+              console.debug('[P2P] failed to publish snapshot request', err);
             }
           }
-        }
+        };
 
-        updatePeers()
-        intervalId = window.setInterval(updatePeers, 1000)
+        updatePeers();
+        intervalId = window.setInterval(updatePeers, 1000);
       })
       .catch((err) => {
-        console.error(err)
-        if (!isActive) return
+        console.error(err);
+        if (!isActive) return;
         setP2pStatus({
           state: 'error',
           peerId: null,
           peers: 0,
-          error: err?.message ?? String(err)
-        })
-      })
+          error: err?.message ?? String(err),
+        });
+      });
 
     return () => {
-      isActive = false
-      if (intervalId != null) window.clearInterval(intervalId)
-      removeEventListener?.()
+      isActive = false;
+      if (intervalId != null) window.clearInterval(intervalId);
+      removeEventListener?.();
       if (snapshotTimerRef.current != null) {
-        window.clearTimeout(snapshotTimerRef.current)
-        snapshotTimerRef.current = null
+        window.clearTimeout(snapshotTimerRef.current);
+        snapshotTimerRef.current = null;
       }
-      snapshotCandidateRef.current = null
-      scheduleStopP2P(0)
-    }
-  }, [applyRemoteP2PEvent])
-  
+      snapshotCandidateRef.current = null;
+      scheduleStopP2P(0);
+    };
+  }, [applyRemoteP2PEvent]);
+
   const [selectedTool, setSelectedTool] = useState('pen');
   const [strokeColor, setStrokeColor] = useState('#000000');
   const [fillColor, setFillColor] = useState('transparent');
@@ -292,7 +292,7 @@ function App() {
         if (data.history && Array.isArray(data.history)) {
           return {
             history: data.history,
-            historyStep: data.historyStep || 0
+            historyStep: data.historyStep || 0,
           };
         }
       }
@@ -309,171 +309,178 @@ function App() {
   const [showSaveIndicator, setShowSaveIndicator] = useState(false);
   const elements = history[historyStep] || [];
   // Keep current elements available to p2p listeners without re-subscribing.
-  elementsRef.current = elements
+  elementsRef.current = elements;
 
   const canvasRef = useRef(null);
 
   const [editingElement, setEditingElement] = useState(null);
   const [textAreaPosition, setTextAreaPosition] = useState({ x: 0, y: 0 });
   const textAreaRef = useRef(null);
-  
+
   // Clipboard state for copy/paste
   const [clipboard, setClipboard] = useState([]);
 
   // Image drag state
   const [isDraggingFile, setIsDraggingFile] = useState(false);
 
-  const updateElementsAndHistory = useCallback((newElementsOrUpdater) => {
-    setHistory((prevHistory) => {
-      const currentElementsState = prevHistory[historyStep] || [];
-      const updatedElementsRaw = typeof newElementsOrUpdater === 'function'
-        ? newElementsOrUpdater(currentElementsState)
-        : newElementsOrUpdater;
+  const updateElementsAndHistory = useCallback(
+    (newElementsOrUpdater) => {
+      setHistory((prevHistory) => {
+        const currentElementsState = prevHistory[historyStep] || [];
+        const updatedElementsRaw =
+          typeof newElementsOrUpdater === 'function'
+            ? newElementsOrUpdater(currentElementsState)
+            : newElementsOrUpdater;
 
-      const updatedElements = Array.isArray(updatedElementsRaw) ? updatedElementsRaw : []
+        const updatedElements = Array.isArray(updatedElementsRaw) ? updatedElementsRaw : [];
 
-      // Broadcast minimal diffs (upsert/delete) for collaborative mode.
-      const suppressBroadcast = suppressBroadcastOnceRef.current || isApplyingRemoteRef.current
-      suppressBroadcastOnceRef.current = false
+        // Broadcast minimal diffs (upsert/delete) for collaborative mode.
+        const suppressBroadcast = suppressBroadcastOnceRef.current || isApplyingRemoteRef.current;
+        suppressBroadcastOnceRef.current = false;
 
-      if (!suppressBroadcast && getP2PNode()) {
-        try {
-          hasLocalEditsSinceP2PStartRef.current = true
-          // If we're about to broadcast local edits, don't allow a pending snapshot to overwrite them.
-          if (snapshotTimerRef.current != null) {
-            window.clearTimeout(snapshotTimerRef.current)
-            snapshotTimerRef.current = null
+        if (!suppressBroadcast && getP2PNode()) {
+          try {
+            hasLocalEditsSinceP2PStartRef.current = true;
+            // If we're about to broadcast local edits, don't allow a pending snapshot to overwrite them.
+            if (snapshotTimerRef.current != null) {
+              window.clearTimeout(snapshotTimerRef.current);
+              snapshotTimerRef.current = null;
+            }
+            snapshotCandidateRef.current = null;
+
+            setP2pStatus((prev) => (prev.sync === 'synced' ? { ...prev, sync: 'idle' } : prev));
+
+            const before = Array.isArray(currentElementsState) ? currentElementsState : [];
+            const after = updatedElements;
+
+            const beforeById = new Map();
+            for (const el of before) {
+              if (el?.id == null) continue;
+              beforeById.set(String(el.id), el);
+            }
+
+            const afterById = new Map();
+            for (const el of after) {
+              if (el?.id == null) continue;
+              afterById.set(String(el.id), el);
+            }
+
+            const upserts = [];
+            for (const el of after) {
+              if (el?.id == null) continue;
+              const key = String(el.id);
+              const prevEl = beforeById.get(key);
+              if (!prevEl || prevEl !== el) upserts.push(el);
+            }
+
+            const deletes = [];
+            for (const el of before) {
+              if (el?.id == null) continue;
+              const key = String(el.id);
+              if (!afterById.has(key)) deletes.push(el.id);
+            }
+
+            if (upserts.length > 0) {
+              publishP2PEvent(P2P_EVENT_TYPES.ELEMENT_UPSERT, { elements: upserts });
+            }
+            if (deletes.length > 0) {
+              publishP2PEvent(P2P_EVENT_TYPES.ELEMENT_DELETE, { ids: deletes });
+            }
+          } catch (err) {
+            console.debug('[P2P] failed to publish element diff', err);
           }
-          snapshotCandidateRef.current = null
-
-          setP2pStatus((prev) => (prev.sync === 'synced' ? { ...prev, sync: 'idle' } : prev))
-
-          const before = Array.isArray(currentElementsState) ? currentElementsState : []
-          const after = updatedElements
-
-          const beforeById = new Map()
-          for (const el of before) {
-            if (el?.id == null) continue
-            beforeById.set(String(el.id), el)
-          }
-
-          const afterById = new Map()
-          for (const el of after) {
-            if (el?.id == null) continue
-            afterById.set(String(el.id), el)
-          }
-
-          const upserts = []
-          for (const el of after) {
-            if (el?.id == null) continue
-            const key = String(el.id)
-            const prevEl = beforeById.get(key)
-            if (!prevEl || prevEl !== el) upserts.push(el)
-          }
-
-          const deletes = []
-          for (const el of before) {
-            if (el?.id == null) continue
-            const key = String(el.id)
-            if (!afterById.has(key)) deletes.push(el.id)
-          }
-
-          if (upserts.length > 0) {
-            publishP2PEvent(P2P_EVENT_TYPES.ELEMENT_UPSERT, { elements: upserts })
-          }
-          if (deletes.length > 0) {
-            publishP2PEvent(P2P_EVENT_TYPES.ELEMENT_DELETE, { ids: deletes })
-          }
-        } catch (err) {
-          console.debug('[P2P] failed to publish element diff', err)
         }
-      }
 
-      const newHistorySlice = prevHistory.slice(0, historyStep + 1);
-      return [...newHistorySlice, updatedElements];
-    });
-    setHistoryStep((prevStep) => prevStep + 1);
-  }, [historyStep]);
+        const newHistorySlice = prevHistory.slice(0, historyStep + 1);
+        return [...newHistorySlice, updatedElements];
+      });
+      setHistoryStep((prevStep) => prevStep + 1);
+    },
+    [historyStep]
+  );
 
   // Assign during render so it's available before effects (avoids missing early p2p events).
-  updateElementsAndHistoryRef.current = updateElementsAndHistory
+  updateElementsAndHistoryRef.current = updateElementsAndHistory;
 
   const handleP2PResync = useCallback(() => {
-    if (!getP2PNode()) return
+    if (!getP2PNode()) return;
     if (p2pStatus.peers <= 0) {
-      window.alert('No peers connected yet.')
-      return
+      window.alert('No peers connected yet.');
+      return;
     }
 
     const confirmed = window.confirm(
       'Resync will overwrite your current board with a snapshot from peers. Continue?'
-    )
-    if (!confirmed) return
+    );
+    if (!confirmed) return;
 
-    hasLocalEditsSinceP2PStartRef.current = false
-    hasAppliedSnapshotRef.current = false
-    didRequestSnapshotRef.current = true
-    snapshotCandidateRef.current = null
+    hasLocalEditsSinceP2PStartRef.current = false;
+    hasAppliedSnapshotRef.current = false;
+    didRequestSnapshotRef.current = true;
+    snapshotCandidateRef.current = null;
     if (snapshotTimerRef.current != null) {
-      window.clearTimeout(snapshotTimerRef.current)
-      snapshotTimerRef.current = null
+      window.clearTimeout(snapshotTimerRef.current);
+      snapshotTimerRef.current = null;
     }
 
     setP2pStatus((prev) => ({
       ...prev,
-      sync: 'requesting'
-    }))
+      sync: 'requesting',
+    }));
 
     try {
-      publishP2PEvent(P2P_EVENT_TYPES.SNAPSHOT_REQUEST, { reason: 'manual' })
+      publishP2PEvent(P2P_EVENT_TYPES.SNAPSHOT_REQUEST, { reason: 'manual' });
     } catch (err) {
-      console.debug('[P2P] failed to publish snapshot request', err)
+      console.debug('[P2P] failed to publish snapshot request', err);
     }
-  }, [p2pStatus.peers])
+  }, [p2pStatus.peers]);
 
-  const handleDrawingOrElementComplete = useCallback((newElement) => {
-    updateElementsAndHistory((prevElements) => {
+  const handleDrawingOrElementComplete = useCallback(
+    (newElement) => {
+      updateElementsAndHistory((prevElements) => {
         if (newElement.type === 'sticky' && !newElement.text) {
-            setEditingElement({ id: newElement.id, text: newElement.text || "Note..." });
+          setEditingElement({ id: newElement.id, text: newElement.text || 'Note...' });
         }
         if (newElement.type === 'text' && !newElement.text) {
-            setEditingElement({ id: newElement.id, text: newElement.text || "", isText: true });
+          setEditingElement({ id: newElement.id, text: newElement.text || '', isText: true });
         }
         return [...prevElements, newElement];
-    });
-  }, [updateElementsAndHistory]);
+      });
+    },
+    [updateElementsAndHistory]
+  );
 
   const activateStickyNoteEditing = useCallback((element) => {
     if (element && element.type === 'sticky') {
-        setEditingElement({ id: element.id, text: element.text });
-        const canvasGlobalRect = canvasRef.current?.getCanvasGlobalRect();
-        if (canvasGlobalRect) {
-            setTextAreaPosition({
-                x: canvasGlobalRect.left + element.x,
-                y: canvasGlobalRect.top + element.y,
-            });
-        }
-        setTimeout(() => {
-            textAreaRef.current?.focus();
-            textAreaRef.current?.select();
-        }, 0);
+      setEditingElement({ id: element.id, text: element.text });
+      const canvasGlobalRect = canvasRef.current?.getCanvasGlobalRect();
+      if (canvasGlobalRect) {
+        setTextAreaPosition({
+          x: canvasGlobalRect.left + element.x,
+          y: canvasGlobalRect.top + element.y,
+        });
+      }
+      setTimeout(() => {
+        textAreaRef.current?.focus();
+        textAreaRef.current?.select();
+      }, 0);
     }
   }, []);
 
   const activateTextEditing = useCallback((element) => {
     if (element && element.type === 'text') {
-        setEditingElement({ id: element.id, text: element.text, isText: true });
-        const canvasGlobalRect = canvasRef.current?.getCanvasGlobalRect();
-        if (canvasGlobalRect) {
-            setTextAreaPosition({
-                x: canvasGlobalRect.left + element.x,
-                y: canvasGlobalRect.top + element.y,
-            });
-        }
-        setTimeout(() => {
-            textAreaRef.current?.focus();
-            textAreaRef.current?.select();
-        }, 0);
+      setEditingElement({ id: element.id, text: element.text, isText: true });
+      const canvasGlobalRect = canvasRef.current?.getCanvasGlobalRect();
+      if (canvasGlobalRect) {
+        setTextAreaPosition({
+          x: canvasGlobalRect.left + element.x,
+          y: canvasGlobalRect.top + element.y,
+        });
+      }
+      setTimeout(() => {
+        textAreaRef.current?.focus();
+        textAreaRef.current?.select();
+      }, 0);
     }
   }, []);
 
@@ -493,21 +500,21 @@ function App() {
       setEditingElement((prev) => ({ ...prev, text: event.target.value }));
     }
   };
-  
+
   const handleTextAreaKeyDown = (event) => {
     if (event.key === 'Enter' && !event.shiftKey) {
-        event.preventDefault();
-        handleTextAreaBlur();
+      event.preventDefault();
+      handleTextAreaBlur();
     }
     if (event.key === 'Escape') {
-        event.preventDefault();
-        setEditingElement(null);
+      event.preventDefault();
+      setEditingElement(null);
     }
   };
 
   const handleUndo = () => historyStep > 0 && setHistoryStep(historyStep - 1);
   const handleRedo = () => historyStep < history.length - 1 && setHistoryStep(historyStep + 1);
-  
+
   // Enhanced Clear function with sound alert
   const handleClearFrame = () => {
     // Play sound alert
@@ -516,24 +523,26 @@ function App() {
       const audioContext = new (window.AudioContext || window.webkitAudioContext)();
       const oscillator = audioContext.createOscillator();
       const gainNode = audioContext.createGain();
-      
+
       oscillator.connect(gainNode);
       gainNode.connect(audioContext.destination);
-      
+
       oscillator.frequency.value = 800; // Frequency in Hz
       oscillator.type = 'sine';
-      
+
       gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
       gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
-      
+
       oscillator.start(audioContext.currentTime);
       oscillator.stop(audioContext.currentTime + 0.5);
     } catch (error) {
       console.log('Audio not supported or blocked:', error);
     }
-    
+
     // Show confirmation dialog
-    const confirmed = window.confirm("⚠️ CLEAR CANVAS WARNING ⚠️\n\nThis will permanently delete everything on the canvas and cannot be undone.\n\nAre you sure you want to continue?");
+    const confirmed = window.confirm(
+      '⚠️ CLEAR CANVAS WARNING ⚠️\n\nThis will permanently delete everything on the canvas and cannot be undone.\n\nAre you sure you want to continue?'
+    );
     if (confirmed) {
       setHistory([[]]);
       setHistoryStep(0);
@@ -541,14 +550,14 @@ function App() {
 
       if (!isApplyingRemoteRef.current && getP2PNode()) {
         try {
-          publishP2PEvent(P2P_EVENT_TYPES.CANVAS_CLEAR, {})
+          publishP2PEvent(P2P_EVENT_TYPES.CANVAS_CLEAR, {});
         } catch (err) {
-          console.debug('[P2P] failed to publish clear event', err)
+          console.debug('[P2P] failed to publish clear event', err);
         }
       }
     }
   };
-  
+
   const handleDownloadPNG = (scale = 1) => canvasRef.current?.downloadAsPNG(scale);
   const handleDownloadPDF = () => canvasRef.current?.downloadAsPDF();
 
@@ -562,7 +571,7 @@ function App() {
       const dataToSave = {
         history: history,
         historyStep: historyStep,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       };
       localStorage.setItem('teachbound-canvas-data', JSON.stringify(dataToSave));
       setLastSaveTime(Date.now());
@@ -615,108 +624,120 @@ function App() {
   };
 
   // Handle image upload - creates image element that fits within canvas
-  const handleImageUpload = useCallback((imageData) => {
-    const img = new window.Image();
+  const handleImageUpload = useCallback(
+    (imageData) => {
+      const img = new window.Image();
 
-    img.onload = () => {
-      // Get canvas dimensions
-      const canvasRect = canvasRef.current?.getCanvasGlobalRect();
-      const maxWidth = (canvasRect?.width || 800) * 0.6; // Max 60% of canvas width
-      const maxHeight = (canvasRect?.height || 600) * 0.6; // Max 60% of canvas height
+      img.onload = () => {
+        // Get canvas dimensions
+        const canvasRect = canvasRef.current?.getCanvasGlobalRect();
+        const maxWidth = (canvasRect?.width || 800) * 0.6; // Max 60% of canvas width
+        const maxHeight = (canvasRect?.height || 600) * 0.6; // Max 60% of canvas height
 
-      // Calculate size to fit within bounds while maintaining aspect ratio
-      let width = img.width || 200;
-      let height = img.height || 200;
+        // Calculate size to fit within bounds while maintaining aspect ratio
+        let width = img.width || 200;
+        let height = img.height || 200;
 
-      // Handle edge case where dimensions might be 0
-      if (width === 0) width = 200;
-      if (height === 0) height = 200;
+        // Handle edge case where dimensions might be 0
+        if (width === 0) width = 200;
+        if (height === 0) height = 200;
 
-      const aspectRatio = width / height;
+        const aspectRatio = width / height;
 
-      if (width > maxWidth) {
-        width = maxWidth;
-        height = width / aspectRatio;
-      }
-      if (height > maxHeight) {
-        height = maxHeight;
-        width = height * aspectRatio;
-      }
+        if (width > maxWidth) {
+          width = maxWidth;
+          height = width / aspectRatio;
+        }
+        if (height > maxHeight) {
+          height = maxHeight;
+          width = height * aspectRatio;
+        }
 
-      // Center the image on canvas
-      const x = ((canvasRect?.width || 800) - width) / 2;
-      const y = ((canvasRect?.height || 600) - height) / 2;
+        // Center the image on canvas
+        const x = ((canvasRect?.width || 800) - width) / 2;
+        const y = ((canvasRect?.height || 600) - height) / 2;
 
-      const newImage = {
-        type: 'image',
-        id: generateElementId(),
-        x,
-        y,
-        width,
-        height,
-        rotation: 0,
-        imageData
+        const newImage = {
+          type: 'image',
+          id: generateElementId(),
+          x,
+          y,
+          width,
+          height,
+          rotation: 0,
+          imageData,
+        };
+
+        updateElementsAndHistory((prev) => [...prev, newImage]);
+        setSelectedTool('select'); // Switch to select tool after adding image
       };
 
-      updateElementsAndHistory(prev => [...prev, newImage]);
-      setSelectedTool('select'); // Switch to select tool after adding image
-    };
+      img.onerror = () => {
+        console.error('Failed to load image');
+        alert('Could not load this image format. Please try converting it to PNG or JPEG first.');
+      };
 
-    img.onerror = () => {
-      console.error('Failed to load image');
-      alert('Could not load this image format. Please try converting it to PNG or JPEG first.');
-    };
-
-    // Set crossOrigin for potential CORS issues
-    img.crossOrigin = 'anonymous';
-    img.src = imageData;
-  }, [updateElementsAndHistory]);
+      // Set crossOrigin for potential CORS issues
+      img.crossOrigin = 'anonymous';
+      img.src = imageData;
+    },
+    [updateElementsAndHistory]
+  );
 
   // Handle file drop - supports all common image formats
-  const handleDrop = useCallback((event) => {
-    event.preventDefault();
-    setIsDraggingFile(false);
+  const handleDrop = useCallback(
+    (event) => {
+      event.preventDefault();
+      setIsDraggingFile(false);
 
-    const file = event.dataTransfer.files?.[0];
-    if (!file) return;
+      const file = event.dataTransfer.files?.[0];
+      if (!file) return;
 
-    // Check if it's an image file (by type or extension)
-    const isImage = file.type.startsWith('image/') ||
-      /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico|tiff?|heic|heif|avif)$/i.test(file.name);
+      // Check if it's an image file (by type or extension)
+      const isImage =
+        file.type.startsWith('image/') ||
+        /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico|tiff?|heic|heif|avif)$/i.test(file.name);
 
-    if (isImage) {
-      // For HEIC/HEIF files, try to convert using canvas if browser doesn't support
-      const isHeic = /\.(heic|heif)$/i.test(file.name) || file.type === 'image/heic' || file.type === 'image/heif';
+      if (isImage) {
+        // For HEIC/HEIF files, try to convert using canvas if browser doesn't support
+        const isHeic =
+          /\.(heic|heif)$/i.test(file.name) ||
+          file.type === 'image/heic' ||
+          file.type === 'image/heif';
 
-      if (isHeic) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const img = new window.Image();
-          img.onload = () => {
-            // Convert to PNG using canvas for better compatibility
-            const canvas = document.createElement('canvas');
-            canvas.width = img.width;
-            canvas.height = img.height;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0);
-            const pngDataUrl = canvas.toDataURL('image/png');
-            handleImageUpload(pngDataUrl);
+        if (isHeic) {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            const img = new window.Image();
+            img.onload = () => {
+              // Convert to PNG using canvas for better compatibility
+              const canvas = document.createElement('canvas');
+              canvas.width = img.width;
+              canvas.height = img.height;
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(img, 0, 0);
+              const pngDataUrl = canvas.toDataURL('image/png');
+              handleImageUpload(pngDataUrl);
+            };
+            img.onerror = () => {
+              alert(
+                'HEIC/HEIF format is not supported by your browser. Please convert the image to PNG or JPEG first.'
+              );
+            };
+            img.src = e.target.result;
           };
-          img.onerror = () => {
-            alert('HEIC/HEIF format is not supported by your browser. Please convert the image to PNG or JPEG first.');
+          reader.readAsDataURL(file);
+        } else {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            handleImageUpload(e.target.result);
           };
-          img.src = e.target.result;
-        };
-        reader.readAsDataURL(file);
-      } else {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          handleImageUpload(e.target.result);
-        };
-        reader.readAsDataURL(file);
+          reader.readAsDataURL(file);
+        }
       }
-    }
-  }, [handleImageUpload]);
+    },
+    [handleImageUpload]
+  );
 
   const handleDragOver = useCallback((event) => {
     event.preventDefault();
@@ -743,7 +764,7 @@ function App() {
   const handlePaste = useCallback(() => {
     if (clipboard.length > 0) {
       const offset = 20; // Offset pasted elements
-      const pastedElements = clipboard.map(el => ({
+      const pastedElements = clipboard.map((el) => ({
         ...el,
         id: generateElementId(), // New unique ID
         x: el.x + offset,
@@ -752,18 +773,15 @@ function App() {
         ...(el.endX !== undefined && { endX: el.endX + offset }),
         ...(el.endY !== undefined && { endY: el.endY + offset }),
         // Adjust path for strokes
-        ...(el.path && { 
-          path: el.path.map(point => ({ 
-            x: point.x + offset, 
-            y: point.y + offset 
-          })) 
-        })
+        ...(el.path && {
+          path: el.path.map((point) => ({
+            x: point.x + offset,
+            y: point.y + offset,
+          })),
+        }),
       }));
-      
-      updateElementsAndHistory((prevElements) => [
-        ...prevElements,
-        ...pastedElements
-      ]);
+
+      updateElementsAndHistory((prevElements) => [...prevElements, ...pastedElements]);
     }
   }, [clipboard, updateElementsAndHistory]);
 
@@ -888,8 +906,16 @@ function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedTool, handleUndo, handleRedo, handleCopy, handlePaste, 
-      handleDuplicate, handleDeleteSelected, handleManualSave]);
+  }, [
+    selectedTool,
+    handleUndo,
+    handleRedo,
+    handleCopy,
+    handlePaste,
+    handleDuplicate,
+    handleDeleteSelected,
+    handleManualSave,
+  ]);
 
   return (
     <div className="App">
@@ -920,7 +946,9 @@ function App() {
                   className="p2p-resync-button"
                   onClick={handleP2PResync}
                   disabled={p2pStatus.peers <= 0}
-                  title={p2pStatus.peers <= 0 ? 'No peers connected' : 'Request snapshot from peers'}
+                  title={
+                    p2pStatus.peers <= 0 ? 'No peers connected' : 'Request snapshot from peers'
+                  }
                 >
                   Resync
                 </button>{' '}
@@ -942,8 +970,17 @@ function App() {
           </div>
         )}
         <p className="app-slogan">
-          <a href="https://github.com/sai-educ/TeachBound" target="_blank" rel="noopener noreferrer">Open source</a>, ad-free, and 100% free to use. {' '}
-          <a href="https://forms.gle/WShMfsvVaLc34QeaA" target="_blank" rel="noopener noreferrer">Please provide feedback or suggestions!</a>
+          <a
+            href="https://github.com/sai-educ/TeachBound"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Open source
+          </a>
+          , ad-free, and 100% free to use.{' '}
+          <a href="https://forms.gle/WShMfsvVaLc34QeaA" target="_blank" rel="noopener noreferrer">
+            Please provide feedback or suggestions!
+          </a>
         </p>
       </header>
       <div
@@ -1008,11 +1045,13 @@ function App() {
             position: 'absolute',
             top: `${textAreaPosition.y}px`,
             left: `${textAreaPosition.x}px`,
-            width: editingElement.isText ? '300px' : '150px', 
+            width: editingElement.isText ? '300px' : '150px',
             height: editingElement.isText ? 'auto' : '100px',
             minHeight: editingElement.isText ? '30px' : '100px',
             fontSize: editingElement.isText ? `${fontSize}px` : '14px',
-            backgroundColor: editingElement.isText ? 'rgba(255, 255, 255, 0.95)' : 'rgba(255, 250, 205, 0.95)',
+            backgroundColor: editingElement.isText
+              ? 'rgba(255, 255, 255, 0.95)'
+              : 'rgba(255, 250, 205, 0.95)',
           }}
           value={editingElement.text}
           onChange={handleTextAreaChange}
@@ -1020,13 +1059,9 @@ function App() {
           onKeyDown={handleTextAreaKeyDown}
         />
       )}
-      
+
       {/* Save Indicator */}
-      {showSaveIndicator && (
-        <div className="save-indicator">
-          ✓ Saved
-        </div>
-      )}
+      {showSaveIndicator && <div className="save-indicator">✓ Saved</div>}
     </div>
   );
 }

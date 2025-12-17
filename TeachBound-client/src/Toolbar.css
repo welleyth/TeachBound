@@ -240,7 +240,9 @@
   background-color: #ffffff;
   border: 1px solid #e5e7eb;
   border-radius: 6px;
-  box-shadow: 0 8px 16px -4px rgba(0, 0, 0, 0.12), 0 4px 6px -2px rgba(0, 0, 0, 0.08);
+  box-shadow:
+    0 8px 16px -4px rgba(0, 0, 0, 0.12),
+    0 4px 6px -2px rgba(0, 0, 0, 0.08);
   margin-bottom: 4px;
   padding: 4px 0;
   max-height: 300px;
@@ -317,7 +319,9 @@
   background-color: #ffffff;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
-  box-shadow: 0 12px 24px -4px rgba(0, 0, 0, 0.15), 0 6px 12px -2px rgba(0, 0, 0, 0.1);
+  box-shadow:
+    0 12px 24px -4px rgba(0, 0, 0, 0.15),
+    0 6px 12px -2px rgba(0, 0, 0, 0.1);
   font-family: 'Open Sans', Arial, sans-serif;
   display: block; /* Ensure it's displayed */
 }
@@ -374,7 +378,7 @@
   font-family: 'Open Sans', Arial, sans-serif;
 }
 
-.radio-option input[type="radio"] {
+.radio-option input[type='radio'] {
   margin: 0;
   width: 14px;
   height: 14px;
@@ -443,19 +447,21 @@
   border: 2px solid #e5e7eb;
   cursor: pointer;
   transition: all 0.2s ease-in-out;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
   position: relative;
 }
 
 .color-button:hover {
   transform: scale(1.1);
   border-color: #9ca3af;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 }
 
 .color-button.active {
   border-color: #3b82f6;
-  box-shadow: 0 0 0 1px white, 0 0 0 3px #3b82f6;
+  box-shadow:
+    0 0 0 1px white,
+    0 0 0 3px #3b82f6;
   transform: scale(1.05);
 }
 
@@ -500,14 +506,14 @@
     flex-wrap: wrap;
     gap: 4px;
   }
-  
+
   .download-settings-group {
     margin-left: 0;
     order: 1;
     width: 100%;
     justify-content: flex-end;
   }
-  
+
   .main-tools {
     order: 0;
     width: 100%;
@@ -519,49 +525,49 @@
     margin: 3px;
     padding: 4px;
   }
-  
+
   .main-toolbar {
     flex-direction: column;
     align-items: stretch;
     gap: 6px;
   }
-  
+
   .main-tools {
     justify-content: center;
     width: 100%;
   }
-  
+
   .download-settings-group {
     margin-left: 0;
     align-self: center;
     width: auto;
   }
-  
+
   .tool-button {
     padding: 6px 8px;
     font-size: 10px;
   }
-  
+
   .dropdown-menu {
     min-width: 160px;
   }
-  
+
   .download-dropdown,
   .settings-panel {
     right: auto;
     left: 50%;
     transform: translateX(-50%);
   }
-  
+
   .color-button {
     width: 16px;
     height: 16px;
   }
-  
+
   .separator {
     height: 16px;
   }
-  
+
   .options-label {
     font-size: 10px;
   }
@@ -575,7 +581,7 @@
   .main-tools {
     gap: 2px;
   }
-  
+
   .tool-button {
     padding: 4px 6px;
     font-size: 10px;
@@ -583,20 +589,20 @@
     min-width: 20px;
     min-height: 20px;
   }
-  
+
   .options-label {
     font-size: 9px;
   }
-  
+
   .color-button {
     width: 14px;
     height: 14px;
   }
-  
+
   .tool-group {
     gap: 2px;
   }
-  
+
   .separator {
     margin: 0 2px;
   }

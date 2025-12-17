@@ -11,6 +11,7 @@ Teach Bound aims to provide a simple, yet powerful, digital canvas for educators
 Experience Teach Bound directly in your browser:
 **[https://teachbound.com](https://teachbound.com)**
 ![Teach Bound screenshot](https://github.com/user-attachments/assets/ab02e556-158b-42f1-8885-7124cea6dfa6)
+
 ---
 
 ## Overview
@@ -19,61 +20,62 @@ Teach Bound is an open-source digital whiteboard application built with JavaScri
 
 ## Key Features
 
-* **Versatile Drawing Tools:**
-    * **Pen:** Smooth freehand drawing with selectable colors and line widths
-    * **Eraser:** Easily clear pen strokes
-    * **Selection Tool:** Select, move, and manage multiple elements
-    
-* **Rich Content Creation:**
-    * **Sticky Notes:** Add, edit, and move digital sticky notes
-    * **Text Tool:** Insert formatted text directly onto the canvas
-    * **Shapes:** Draw rectangles, circles, lines, and arrows to structure information
-    
-* **Element Management:**
-    * **Selection Tool:** Select, move, and manage elements on the board
-    * **Delete Selected:** Remove selected elements from the canvas
-    * **Undo/Redo:** Navigate through your action history
-    
-* **Export & Share:**
-    * **Download as PNG:** Save your work as high-quality images (1x, 2x, 3x resolution)
-    * **Download as PDF:** Export your whiteboard for printing or sharing
-    
-* **Professional Interface:**
-    * **Responsive Design:** Adapts to various screen sizes for a seamless experience
-    * **Customizable Toolbar:** Choose between icons only, icons with text, or text only display
-    * **Clear Frame:** Instantly reset the canvas
+- **Versatile Drawing Tools:**
+  - **Pen:** Smooth freehand drawing with selectable colors and line widths
+  - **Eraser:** Easily clear pen strokes
+  - **Selection Tool:** Select, move, and manage multiple elements
+- **Rich Content Creation:**
+  - **Sticky Notes:** Add, edit, and move digital sticky notes
+  - **Text Tool:** Insert formatted text directly onto the canvas
+  - **Shapes:** Draw rectangles, circles, lines, and arrows to structure information
+- **Element Management:**
+  - **Selection Tool:** Select, move, and manage elements on the board
+  - **Delete Selected:** Remove selected elements from the canvas
+  - **Undo/Redo:** Navigate through your action history
+- **Export & Share:**
+  - **Download as PNG:** Save your work as high-quality images (1x, 2x, 3x resolution)
+  - **Download as PDF:** Export your whiteboard for printing or sharing
+- **Professional Interface:**
+  - **Responsive Design:** Adapts to various screen sizes for a seamless experience
+  - **Customizable Toolbar:** Choose between icons only, icons with text, or text only display
+  - **Clear Frame:** Instantly reset the canvas
 
 ## Tech Stack
 
-* **Frontend Framework:** React.js
-* **Styling:** Custom CSS with responsive design
-* **Icons:** Lucide React
-* **Font:** Open Sans
-* **Hosting:** Vercel
-* **Development:** Built using vibe coding techniques with Claude and Gemini AI assistants
+- **Frontend Framework:** React.js
+- **Styling:** Custom CSS with responsive design
+- **Icons:** Lucide React
+- **Font:** Open Sans
+- **Hosting:** Vercel
+- **Development:** Built using vibe coding techniques with Claude and Gemini AI assistants
 
 ## Getting Started
 
 ### Use Online
+
 1. Visit [https://teachbound.com](https://teachbound.com)
 2. Select your desired tool from the toolbar
 3. Click and drag on the canvas to create!
 4. Use options for colors, line width, and font size to customize
 
 ### Run Locally
+
 1. Clone the repository:
+
    ```bash
    git clone https://github.com/sai-educ/TeachBound.git
    cd TeachBound
    ```
 
 2. Install dependencies (client):
+
    ```bash
    cd TeachBound-client
    npm install
    ```
 
 3. (Optional) Start the WebRTC-star signalling server (default `/tcp/9090/ws`):
+
    ```bash
    cd ../TeachBound-host
    npm install
@@ -83,20 +85,23 @@ Teach Bound is an open-source digital whiteboard application built with JavaScri
 4. (Optional) Enable the current p2p smoke-test in the client:
    - Create `TeachBound-client/.env` (this file is intentionally ignored by git)
    - Add:
+
      ```bash
      # Local signalling server (recommended for local dev)
      REACT_APP_P2P_SIGNALING_ADDR=/ip4/127.0.0.1/tcp/9090/ws/p2p-webrtc-star
-     
+
      # Optional: room id (maps to pubsub topic `teachbound/<room>`)
      REACT_APP_P2P_ROOM=demo
-     
+
      # Hosted demo signalling servers (not for production)
      # REACT_APP_P2P_SIGNALING_ADDR=/dns4/wrtc-star1.par.dwebops.pub/tcp/443/wss/p2p-webrtc-star
      # REACT_APP_P2P_SIGNALING_ADDR=/dns4/wrtc-star2.sjc.dwebops.pub/tcp/443/wss/p2p-webrtc-star
      ```
+
    - Restart the client after changing `.env`
 
 5. Start the client development server:
+
    ```bash
    cd ../TeachBound-client
    npm start
@@ -109,6 +114,7 @@ Teach Bound is an open-source digital whiteboard application built with JavaScri
 We believe in the power of open-source and warmly welcome contributions! Whether it's a bug report, feature suggestion, or a pull request, your input is valuable.
 
 ### How to Contribute
+
 1. Fork the repository
 2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
 3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
@@ -126,6 +132,7 @@ Created for educators, by an educator who understands the needs of modern teachi
 Teach Bound is licensed under the **Creative Commons Attribution-NonCommercial 4.0 International License (CC BY-NC 4.0)**.
 
 This means:
+
 - ✅ You can use, share, and adapt the software for non-commercial purposes
 - ✅ You must give appropriate credit
 - ❌ Commercial use is not permitted without permission
@@ -135,10 +142,10 @@ This means:
 ## Support
 
 For questions, suggestions, or support:
+
 - Open an issue on [GitHub](https://github.com/sai-educ/TeachBound/issues)
 - Visit our website: [https://teachbound.com](https://teachbound.com)
 
 ---
 
 **Made with ❤️ for the education community**
-
