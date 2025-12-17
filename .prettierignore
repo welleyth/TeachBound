@@ -1,0 +1,28 @@
+**/node_modules/**
+**/build/**
+**/coverage/**
+**/.cache/**
+**/dist/**
+**/.next/**
+**/.turbo/**
+
+# Lockfiles (avoid noisy diffs)
+**/package-lock.json
+**/yarn.lock
+**/pnpm-lock.yaml
+
+# Assets
+**/public/**
+**/*.svg
+**/*.png
+**/*.jpg
+**/*.jpeg
+**/*.gif
+**/*.ico
+**/*.webp
+
+# Local/CI tooling
+.cursor/**
+changes.txt
+
+
