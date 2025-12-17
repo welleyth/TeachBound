@@ -1,0 +1,213 @@
+/* src/App.css */
+.App {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  background-color: #f0f2f5;
+  font-family: 'Open Sans', Arial, sans-serif;
+}
+
+.app-header {
+  padding: 12px 20px;
+  background-color: #ffffff;
+  border-bottom: 1px solid #e0e0e0;
+  flex-shrink: 0;
+  text-align: left;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.app-title-container {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.app-title {
+  margin: 0;
+  font-size: 1.6em;
+  color: #1f2937;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  font-family: 'Open Sans', Arial, sans-serif;
+}
+
+.app-subtitle {
+  font-size: 1em;
+  color: #6b7280;
+  font-weight: 400;
+  font-family: 'Open Sans', Arial, sans-serif;
+}
+
+.app-slogan {
+  margin: 0;
+  font-size: 0.85em;
+  color: #6b7280;
+  line-height: 1.4;
+  font-family: 'Open Sans', Arial, sans-serif;
+}
+
+.app-slogan a {
+  color: #3b82f6;
+  text-decoration: none;
+  font-weight: 600;
+  transition: color 0.2s ease-in-out, text-decoration 0.2s ease-in-out;
+}
+
+.app-slogan a:hover {
+  color: #2563eb;
+  text-decoration: underline;
+}
+
+.app-slogan a:active {
+  color: #1d4ed8;
+}
+
+.main-content-wrapper {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Drag and drop overlay */
+.main-content-wrapper.dragging-file::after {
+  content: 'Drop image here';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(59, 130, 246, 0.15);
+  border: 3px dashed #3b82f6;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  font-weight: 600;
+  color: #3b82f6;
+  z-index: 9999;
+  pointer-events: none;
+}
+
+/* Styles for the sticky note textarea overlay */
+.sticky-note-textarea {
+  border: 2px dashed #3b82f6;
+  background-color: rgba(255, 250, 205, 0.95);
+  padding: 10px;
+  font-family: 'Open Sans', Arial, sans-serif;
+  font-size: 14px;
+  box-sizing: border-box;
+  outline: none;
+  resize: none;
+  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border-radius: 4px;
+  line-height: 1.4;
+}
+
+.sticky-note-textarea:focus {
+  border-color: #2563eb;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .app-header {
+    padding: 10px 15px;
+  }
+  
+  .app-title-container {
+    flex-direction: column;
+    gap: 2px;
+    align-items: flex-start;
+  }
+  
+  .app-title {
+    font-size: 1.4em;
+  }
+  
+  .app-subtitle {
+    font-size: 0.9em;
+  }
+  
+  .app-slogan {
+    font-size: 0.8em;
+  }
+}
+
+@media (max-width: 480px) {
+  .app-header {
+    padding: 8px 12px;
+  }
+  
+  .app-title {
+    font-size: 1.3em;
+  }
+  
+  .app-subtitle {
+    font-size: 0.85em;
+  }
+  
+  .app-slogan {
+    font-size: 0.75em;
+  }
+}
+
+/* Save Indicator */
+.save-indicator {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background-color: #10b981;
+  color: white;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: 'Open Sans', Arial, sans-serif;
+  z-index: 10000;
+  animation: fadeInOut 2s ease-in-out;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+@keyframes fadeInOut {
+  0% {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  20% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  80% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+
+/* Keyboard shortcut hints in tooltips */
+.tool-button[title]:hover::after {
+  content: attr(title);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 8px;
+  background-color: rgba(0, 0, 0, 0.8);
+  color: white;
+  font-size: 12px;
+  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 1000;
+  margin-bottom: 4px;
+}
