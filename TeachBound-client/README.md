@@ -67,17 +67,37 @@ Teach Bound is an open-source digital whiteboard application built with JavaScri
    cd TeachBound
    ```
 
-2. Install dependencies:
+2. Install dependencies (client):
    ```bash
+   cd TeachBound-client
    npm install
    ```
 
-3. Start the development server:
+3. (Optional) Start the libp2p test host (runs on `/tcp/15555/ws`):
    ```bash
+   cd ../TeachBound-host
+   npm install
+   node src/host.js
+   ```
+
+4. (Optional) Enable the current p2p smoke-test in the client:
+   - Create `TeachBound-client/.env` (this file is intentionally ignored by git)
+   - Add:
+     ```bash
+     # Use a dialable multiaddr printed by the host.
+     # If the host prints `/ip4/0.0.0.0/...`, replace `0.0.0.0` with `127.0.0.1` (same machine)
+     # or the host machine's LAN IP (other devices).
+     REACT_APP_P2P_HOST=/ip4/127.0.0.1/tcp/15555/ws/p2p/<HOST_PEER_ID>
+     ```
+   - Restart the client after changing `.env`
+
+5. Start the client development server:
+   ```bash
+   cd ../TeachBound-client
    npm start
    ```
 
-4. Open [http://localhost:3000](http://localhost:3000) in your browser
+6. Open [http://localhost:3000](http://localhost:3000) in your browser
 
 ## Contribution
 
@@ -116,3 +136,4 @@ For questions, suggestions, or support:
 ---
 
 **Made with ❤️ for the education community**
+
