@@ -16,6 +16,7 @@
     "@chainsafe/libp2p-noise": "^17.0.0",
     "@chainsafe/libp2p-yamux": "^8.0.1",
     "@libp2p/identify": "^4.0.9",
+    "@libp2p/webrtc-star": "^7.0.0",
     "@libp2p/websockets": "^10.1.2",
     "@multiformats/multiaddr": "^13.0.1",
     "@testing-library/dom": "^10.4.0",

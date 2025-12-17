@@ -1,36 +1,33 @@
-import { createLibp2p } from 'libp2p'
-import { webSockets } from '@libp2p/websockets'
-import { noise } from '@chainsafe/libp2p-noise'
-import { yamux } from '@chainsafe/libp2p-yamux'
-import { gossipsub } from '@chainsafe/libp2p-gossipsub'
-import { identify } from '@libp2p/identify'
+import { sigServer } from '@libp2p/webrtc-star-signalling-server'
 
-const TOPIC = 'teachbound/test'
+const host = process.env.P2P_SIGNALING_HOST ?? '0.0.0.0'
+const port = Number(process.env.P2P_SIGNALING_PORT ?? process.env.PORT ?? 9090)
 
-const node = await createLibp2p({
-  addresses: {
-    // фиксированный порт для простого теста
-    listen: ['/ip4/0.0.0.0/tcp/15555/ws']
-  },
-  transports: [webSockets()],
-  connectionEncrypters: [noise()],
-  streamMuxers: [yamux()],
-  services: {
-    identify: identify(),
-    pubsub: gossipsub()
+const server = await sigServer({
+  host,
+  port,
+  metrics: false
+})
+
+console.log('[TeachBound-host] WebRTC-star signalling server started')
+console.log(`[TeachBound-host] Listening on ${host}:${port}`)
+
+// The signalling server binds to 0.0.0.0, but clients must dial a real interface address.
+const dialHost = host === '0.0.0.0' ? '127.0.0.1' : host
+console.log('[TeachBound-host] Client multiaddr (local dev):')
+console.log(`  /ip4/${dialHost}/tcp/${port}/ws/p2p-webrtc-star`)
+console.log('[TeachBound-host] Hosted demo signalling servers (not for production):')
+console.log('  /dns4/wrtc-star1.par.dwebops.pub/tcp/443/wss/p2p-webrtc-star')
+console.log('  /dns4/wrtc-star2.sjc.dwebops.pub/tcp/443/wss/p2p-webrtc-star')
+
+async function shutdown() {
+  try {
+    console.log('\n[TeachBound-host] Stopping signalling server...')
+    await server.stop()
+  } finally {
+    process.exit(0)
   }
-})
+}
 
-await node.start()
-
-console.log('Host peer started:', node.peerId.toString())
-console.log('Listening on:')
-node.getMultiaddrs().forEach((ma) => console.log(ma.toString()))
-
-node.services.pubsub.addEventListener('message', (evt) => {
-  const { topic, data, from } = evt.detail
-  console.log(`[${topic}] from ${from}: ${new TextDecoder().decode(data)}`)
-})
-
-await node.services.pubsub.subscribe(TOPIC)
-console.log('Subscribed to:', TOPIC)
+process.on('SIGINT', shutdown)
+process.on('SIGTERM', shutdown)

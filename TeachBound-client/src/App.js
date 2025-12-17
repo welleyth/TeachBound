@@ -10,12 +10,19 @@ const APP_SUBTITLE = "Digital White Board";
 
 function App() {
   useEffect(() => {
-    const host = process.env.REACT_APP_P2P_HOST
-    if (!host) {
-      console.warn('No REACT_APP_P2P_HOST set')
+    const signalingAddr = process.env.REACT_APP_P2P_SIGNALING_ADDR
+    const legacyHostAddr = process.env.REACT_APP_P2P_HOST
+    const bootstrapAddr = signalingAddr ?? legacyHostAddr
+
+    if (!bootstrapAddr) {
+      console.warn('No REACT_APP_P2P_SIGNALING_ADDR (or legacy REACT_APP_P2P_HOST) set')
       return
     }
-    startP2P(host).catch(console.error)
+
+    const room = process.env.REACT_APP_P2P_ROOM
+    const topic = room ? `teachbound/${room}` : undefined
+
+    startP2P(bootstrapAddr, { topic }).catch(console.error)
   }, [])
   
   const [selectedTool, setSelectedTool] = useState('pen');

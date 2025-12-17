@@ -1,9 +1,10 @@
 import { createLibp2p } from 'libp2p'
-import { webSockets } from '@libp2p/websockets'
 import { noise } from '@chainsafe/libp2p-noise'
 import { yamux } from '@chainsafe/libp2p-yamux'
 import { gossipsub } from '@chainsafe/libp2p-gossipsub'
 import { identify } from '@libp2p/identify'
+import { webRTCStar } from '@libp2p/webrtc-star'
+import { webSockets } from '@libp2p/websockets'
 import { multiaddr } from '@multiformats/multiaddr'
 
 export const DEFAULT_P2P_TOPIC = 'teachbound/test'
@@ -12,6 +13,7 @@ let _nodePromise = null
 let _node = null
 let _onMessage = new Set()
 let _removeMessageListener = null
+let _removePeerDiscoveryListener = null
 
 function _attachPubsubListener(node) {
   const handler = (evt) => {
@@ -24,15 +26,44 @@ function _attachPubsubListener(node) {
   return () => node.services.pubsub.removeEventListener('message', handler)
 }
 
-async function _createNode() {
+function _attachAutoDialOnDiscovery(node) {
+  const dialed = new Set()
+
+  const handler = (evt) => {
+    const detail = evt.detail
+    const peerId = detail?.id ?? detail
+    if (!peerId) return
+
+    const peerIdStr = peerId.toString()
+    if (peerIdStr === node.peerId.toString()) return
+    if (dialed.has(peerIdStr)) return
+    dialed.add(peerIdStr)
+
+    const firstAddr = Array.isArray(detail?.multiaddrs) ? detail.multiaddrs[0] : null
+    const dialTarget = firstAddr ?? peerId
+
+    node.dial(dialTarget).catch((err) => {
+      console.debug('[P2P] auto-dial failed', peerIdStr, err)
+    })
+  }
+
+  node.addEventListener('peer:discovery', handler)
+  return () => node.removeEventListener('peer:discovery', handler)
+}
+
+async function _createNode(libp2pOverrides = {}) {
+  const { services: servicesOverride, ...restOverrides } = libp2pOverrides
+
   const node = await createLibp2p({
     transports: [webSockets()],
     connectionEncrypters: [noise()],
     streamMuxers: [yamux()],
     services: {
       identify: identify(),
-      pubsub: gossipsub()
-    }
+      pubsub: gossipsub(),
+      ...(servicesOverride ?? {})
+    },
+    ...restOverrides
   })
 
   await node.start()
@@ -43,21 +74,40 @@ async function _createNode() {
 /**
  * Start (or reuse) a singleton libp2p node.
  *
- * Current (temporary) topology: browser dials a known host multiaddr over WebSockets.
- * Step 2 will replace this with browser↔browser connectivity.
+ * Topology:
+ * - If `bootstrapAddr` is a webrtc-star signalling multiaddr (contains `p2p-webrtc-star`),
+ *   we start libp2p with the WebRTC-Star transport + discovery and auto-dial discovered peers.
+ * - Otherwise we fall back to the old demo mode (dial a known host over WebSockets).
  */
-export async function startP2P(hostAddr, opts = {}) {
+export async function startP2P(bootstrapAddr, opts = {}) {
   const { topic = DEFAULT_P2P_TOPIC, onMessage, publishHello = true } = opts
   if (onMessage) _onMessage.add(onMessage)
 
   if (_nodePromise) return _nodePromise
 
   _nodePromise = (async () => {
-    _node = await _createNode()
+    const isWebRTCStar = typeof bootstrapAddr === 'string' && bootstrapAddr.includes('p2p-webrtc-star')
 
-    if (hostAddr) {
-      // подключаемся к хосту
-      await _node.dial(multiaddr(hostAddr))
+    if (isWebRTCStar) {
+      const star = webRTCStar()
+      _node = await _createNode({
+        addresses: {
+          listen: [bootstrapAddr]
+        },
+        transports: [star.transport],
+        peerDiscovery: [star.discovery]
+      })
+      _removePeerDiscoveryListener = _attachAutoDialOnDiscovery(_node)
+    } else {
+      // Legacy ws-host demo mode
+      _node = await _createNode({
+        transports: [webSockets()]
+      })
+
+      if (bootstrapAddr) {
+        // подключаемся к хосту
+        await _node.dial(multiaddr(bootstrapAddr))
+      }
     }
 
     // “комната”
@@ -91,8 +141,10 @@ export async function stopP2P() {
   if (!node) return
   try {
     _removeMessageListener?.()
+    _removePeerDiscoveryListener?.()
   } finally {
     _removeMessageListener = null
+    _removePeerDiscoveryListener = null
   }
   await node.stop()
 }

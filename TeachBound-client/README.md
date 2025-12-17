@@ -73,21 +73,26 @@ Teach Bound is an open-source digital whiteboard application built with JavaScri
    npm install
    ```
 
-3. (Optional) Start the libp2p test host (runs on `/tcp/15555/ws`):
+3. (Optional) Start the WebRTC-star signalling server (default `/tcp/9090/ws`):
    ```bash
    cd ../TeachBound-host
    npm install
-   node src/host.js
+   npm start
    ```
 
 4. (Optional) Enable the current p2p smoke-test in the client:
    - Create `TeachBound-client/.env` (this file is intentionally ignored by git)
    - Add:
      ```bash
-     # Use a dialable multiaddr printed by the host.
-     # If the host prints `/ip4/0.0.0.0/...`, replace `0.0.0.0` with `127.0.0.1` (same machine)
-     # or the host machine's LAN IP (other devices).
-     REACT_APP_P2P_HOST=/ip4/127.0.0.1/tcp/15555/ws/p2p/<HOST_PEER_ID>
+     # Local signalling server (recommended for local dev)
+     REACT_APP_P2P_SIGNALING_ADDR=/ip4/127.0.0.1/tcp/9090/ws/p2p-webrtc-star
+     
+     # Optional: room id (maps to pubsub topic `teachbound/<room>`)
+     REACT_APP_P2P_ROOM=demo
+     
+     # Hosted demo signalling servers (not for production)
+     # REACT_APP_P2P_SIGNALING_ADDR=/dns4/wrtc-star1.par.dwebops.pub/tcp/443/wss/p2p-webrtc-star
+     # REACT_APP_P2P_SIGNALING_ADDR=/dns4/wrtc-star2.sjc.dwebops.pub/tcp/443/wss/p2p-webrtc-star
      ```
    - Restart the client after changing `.env`
 
