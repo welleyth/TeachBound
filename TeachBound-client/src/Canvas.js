@@ -1,6 +1,7 @@
 // src/Canvas.js
 import React, { useRef, useEffect, useState, useImperativeHandle, forwardRef } from 'react';
 import './Canvas.css';
+import { generateElementId } from './utils/ids';
 
 const STICKY_NOTE_WIDTH = 150;
 const STICKY_NOTE_HEIGHT = 100;
@@ -1133,7 +1134,7 @@ const Canvas = forwardRef(({
       
     } else if (selectedTool === 'text') {
       setSelectedElements([]);
-      const newTextId = Date.now();
+      const newTextId = generateElementId();
       const newText = {
         type: 'text',
         x,
@@ -1148,7 +1149,7 @@ const Canvas = forwardRef(({
       
     } else if (selectedTool === 'sticky') {
       setSelectedElements([]);
-      const newStickyId = Date.now();
+      const newStickyId = generateElementId();
       const newSticky = {
         type: 'sticky',
         x: x - STICKY_NOTE_WIDTH / 2,
@@ -1339,7 +1340,7 @@ const Canvas = forwardRef(({
           path: currentPath,
           isEraser: selectedTool === 'eraser',
           isHighlighter: selectedTool === 'highlighter',
-          id: Date.now()
+          id: generateElementId()
         });
       }
       setCurrentPath([]);
@@ -1385,7 +1386,7 @@ const Canvas = forwardRef(({
           strokeColor,
           fillColor,
           lineWidth,
-          id: Date.now()
+          id: generateElementId()
         };
         
         if (currentShape === 'rectangle') {

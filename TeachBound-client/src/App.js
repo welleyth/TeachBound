@@ -3,7 +3,15 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import './App.css';
 import Toolbar from './Toolbar';
 import Canvas from './Canvas';
-import { startP2P, scheduleStopP2P, getP2PNode } from './p2p/startP2P'
+import {
+  addP2PEventListener,
+  getP2PNode,
+  publishP2PEvent,
+  scheduleStopP2P,
+  startP2P
+} from './p2p/startP2P'
+import { P2P_EVENT_TYPES } from './p2p/protocol'
+import { generateElementId } from './utils/ids';
 // --- App Name & Slogan ---
 const APP_NAME = "Teach Bound";
 const APP_SUBTITLE = "Digital White Board";
@@ -15,6 +23,75 @@ function App() {
     peers: 0,
     error: null
   })
+
+  const isApplyingRemoteRef = useRef(false)
+  const suppressBroadcastOnceRef = useRef(false)
+
+  // Keep a ref to the latest updateElementsAndHistory to avoid stale closures in p2p listeners.
+  const updateElementsAndHistoryRef = useRef(null)
+
+  const applyRemoteP2PEvent = useCallback((evt) => {
+    const node = getP2PNode()
+    const myPeerId = node?.peerId?.toString?.() ?? (node?.peerId ? String(node.peerId) : null)
+    if (myPeerId && evt?.from === myPeerId) return
+
+    if (!evt || typeof evt.type !== 'string') return
+
+    switch (evt.type) {
+      case P2P_EVENT_TYPES.ELEMENT_UPSERT: {
+        const incoming = evt?.payload?.elements
+        if (!Array.isArray(incoming) || incoming.length === 0) return
+
+        suppressBroadcastOnceRef.current = true
+        updateElementsAndHistoryRef.current?.((prevElements) => {
+          const indexById = new Map(prevElements.map((el, idx) => [String(el.id), idx]))
+          const next = [...prevElements]
+
+          for (const el of incoming) {
+            if (!el || el.id == null) continue
+            const key = String(el.id)
+            const idx = indexById.get(key)
+            if (idx == null) {
+              indexById.set(key, next.length)
+              next.push(el)
+            } else {
+              next[idx] = el
+            }
+          }
+
+          return next
+        })
+        return
+      }
+
+      case P2P_EVENT_TYPES.ELEMENT_DELETE: {
+        const ids = evt?.payload?.ids
+        if (!Array.isArray(ids) || ids.length === 0) return
+        const idsSet = new Set(ids.map((id) => String(id)))
+
+        suppressBroadcastOnceRef.current = true
+        updateElementsAndHistoryRef.current?.((prevElements) =>
+          prevElements.filter((el) => !idsSet.has(String(el.id)))
+        )
+        return
+      }
+
+      case P2P_EVENT_TYPES.CANVAS_CLEAR: {
+        isApplyingRemoteRef.current = true
+        try {
+          setHistory([[]])
+          setHistoryStep(0)
+          canvasRef.current?.clearSelection?.()
+        } finally {
+          isApplyingRemoteRef.current = false
+        }
+        return
+      }
+
+      default:
+        return
+    }
+  }, [])
 
   useEffect(() => {
     const signalingAddr = process.env.REACT_APP_P2P_SIGNALING_ADDR
@@ -31,6 +108,7 @@ function App() {
 
     let isActive = true
     let intervalId = null
+    let removeEventListener = null
 
     setP2pStatus({
       state: 'starting',
@@ -47,6 +125,8 @@ function App() {
           state: 'running',
           peerId: node.peerId?.toString?.() ?? String(node.peerId)
         }))
+
+        removeEventListener = addP2PEventListener(applyRemoteP2PEvent)
 
         const updatePeers = () => {
           const n = getP2PNode()
@@ -82,9 +162,10 @@ function App() {
     return () => {
       isActive = false
       if (intervalId != null) window.clearInterval(intervalId)
+      removeEventListener?.()
       scheduleStopP2P(0)
     }
-  }, [])
+  }, [applyRemoteP2PEvent])
   
   const [selectedTool, setSelectedTool] = useState('pen');
   const [strokeColor, setStrokeColor] = useState('#000000');
@@ -135,15 +216,67 @@ function App() {
   const updateElementsAndHistory = useCallback((newElementsOrUpdater) => {
     setHistory((prevHistory) => {
       const currentElementsState = prevHistory[historyStep] || [];
-      const updatedElements = typeof newElementsOrUpdater === 'function'
+      const updatedElementsRaw = typeof newElementsOrUpdater === 'function'
         ? newElementsOrUpdater(currentElementsState)
         : newElementsOrUpdater;
+
+      const updatedElements = Array.isArray(updatedElementsRaw) ? updatedElementsRaw : []
+
+      // Broadcast minimal diffs (upsert/delete) for collaborative mode.
+      const suppressBroadcast = suppressBroadcastOnceRef.current || isApplyingRemoteRef.current
+      suppressBroadcastOnceRef.current = false
+
+      if (!suppressBroadcast && getP2PNode()) {
+        try {
+          const before = Array.isArray(currentElementsState) ? currentElementsState : []
+          const after = updatedElements
+
+          const beforeById = new Map()
+          for (const el of before) {
+            if (el?.id == null) continue
+            beforeById.set(String(el.id), el)
+          }
+
+          const afterById = new Map()
+          for (const el of after) {
+            if (el?.id == null) continue
+            afterById.set(String(el.id), el)
+          }
+
+          const upserts = []
+          for (const el of after) {
+            if (el?.id == null) continue
+            const key = String(el.id)
+            const prevEl = beforeById.get(key)
+            if (!prevEl || prevEl !== el) upserts.push(el)
+          }
+
+          const deletes = []
+          for (const el of before) {
+            if (el?.id == null) continue
+            const key = String(el.id)
+            if (!afterById.has(key)) deletes.push(el.id)
+          }
+
+          if (upserts.length > 0) {
+            publishP2PEvent(P2P_EVENT_TYPES.ELEMENT_UPSERT, { elements: upserts })
+          }
+          if (deletes.length > 0) {
+            publishP2PEvent(P2P_EVENT_TYPES.ELEMENT_DELETE, { ids: deletes })
+          }
+        } catch (err) {
+          console.debug('[P2P] failed to publish element diff', err)
+        }
+      }
 
       const newHistorySlice = prevHistory.slice(0, historyStep + 1);
       return [...newHistorySlice, updatedElements];
     });
     setHistoryStep((prevStep) => prevStep + 1);
   }, [historyStep]);
+
+  // Assign during render so it's available before effects (avoids missing early p2p events).
+  updateElementsAndHistoryRef.current = updateElementsAndHistory
 
   const handleDrawingOrElementComplete = useCallback((newElement) => {
     updateElementsAndHistory((prevElements) => {
@@ -251,6 +384,15 @@ function App() {
     if (confirmed) {
       setHistory([[]]);
       setHistoryStep(0);
+      canvasRef.current?.clearSelection?.();
+
+      if (!isApplyingRemoteRef.current && getP2PNode()) {
+        try {
+          publishP2PEvent(P2P_EVENT_TYPES.CANVAS_CLEAR, {})
+        } catch (err) {
+          console.debug('[P2P] failed to publish clear event', err)
+        }
+      }
     }
   };
   
@@ -354,7 +496,7 @@ function App() {
 
       const newImage = {
         type: 'image',
-        id: Date.now(),
+        id: generateElementId(),
         x,
         y,
         width,
@@ -450,7 +592,7 @@ function App() {
       const offset = 20; // Offset pasted elements
       const pastedElements = clipboard.map(el => ({
         ...el,
-        id: Date.now() + Math.random(), // New unique ID
+        id: generateElementId(), // New unique ID
         x: el.x + offset,
         y: el.y + offset,
         // Adjust end coordinates for shapes
