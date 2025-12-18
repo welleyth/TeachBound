@@ -74,7 +74,7 @@ Teach Bound is an open-source digital whiteboard application built with JavaScri
    npm install
    ```
 
-3. (Optional) Start the WebRTC-star signalling server (default `/tcp/9090/ws`):
+3. (Optional) Start the P2P relay/bootstrap node (default port 9090):
 
    ```bash
    cd ../TeachBound-host
@@ -82,23 +82,27 @@ Teach Bound is an open-source digital whiteboard application built with JavaScri
    npm start
    ```
 
-4. (Optional) Enable the current p2p smoke-test in the client:
+   The host will print its peer ID and multiaddr, e.g.:
+   ```
+   [TeachBound-host] Peer ID: 12D3KooW...
+   [TeachBound-host] For client .env:
+     REACT_APP_P2P_RELAY_ADDR=/ip4/127.0.0.1/tcp/9090/ws/p2p/12D3KooW...
+   ```
+
+4. (Optional) Enable P2P collaboration in the client:
    - Create `TeachBound-client/.env` (this file is intentionally ignored by git)
    - Add:
 
      ```bash
-     # Local signalling server (recommended for local dev)
-     REACT_APP_P2P_SIGNALING_ADDR=/ip4/127.0.0.1/tcp/9090/ws/p2p-webrtc-star
+     # Copy the multiaddr from the host output (includes the peer ID)
+     REACT_APP_P2P_SIGNALING_ADDR=/ip4/127.0.0.1/tcp/9090/ws/p2p/<HOST_PEER_ID>
 
      # Optional: room id (maps to pubsub topic `teachbound/<room>`)
      REACT_APP_P2P_ROOM=demo
-
-     # Hosted demo signalling servers (not for production)
-     # REACT_APP_P2P_SIGNALING_ADDR=/dns4/wrtc-star1.par.dwebops.pub/tcp/443/wss/p2p-webrtc-star
-     # REACT_APP_P2P_SIGNALING_ADDR=/dns4/wrtc-star2.sjc.dwebops.pub/tcp/443/wss/p2p-webrtc-star
      ```
 
    - Restart the client after changing `.env`
+   - Open the app in multiple browser tabs to test P2P sync
 
 5. Start the client development server:
 

@@ -1,33 +1,84 @@
-import { sigServer } from '@libp2p/webrtc-star-signalling-server';
+import { createLibp2p } from 'libp2p'
+import { noise } from '@chainsafe/libp2p-noise'
+import { yamux } from '@chainsafe/libp2p-yamux'
+import { gossipsub } from '@chainsafe/libp2p-gossipsub'
+import { identify } from '@libp2p/identify'
+import { webSockets } from '@libp2p/websockets'
+import { circuitRelayServer } from '@libp2p/circuit-relay-v2'
 
-const host = process.env.P2P_SIGNALING_HOST ?? '0.0.0.0';
-const port = Number(process.env.P2P_SIGNALING_PORT ?? process.env.PORT ?? 9090);
+const PORT = process.env.PORT || 9090
 
-const server = await sigServer({
-  host,
-  port,
-  metrics: false,
-});
+async function main() {
+  const node = await createLibp2p({
+    addresses: {
+      listen: [`/ip4/0.0.0.0/tcp/${PORT}/ws`]
+    },
+    transports: [webSockets()],
+    connectionEncrypters: [noise()],
+    streamMuxers: [yamux()],
+    services: {
+      identify: identify(),
+      pubsub: gossipsub({
+        emitSelf: false,
+        allowPublishToZeroTopicPeers: true
+      }),
+      relay: circuitRelayServer({
+        reservations: {
+          maxReservations: 128,
+          reservationTtl: 120000,
+          defaultDataLimit: BigInt(1 << 20) // 1MB
+        }
+      })
+    },
+    connectionManager: {
+      maxConnections: 100,
+      minConnections: 0
+    }
+  })
 
-console.log('[TeachBound-host] WebRTC-star signalling server started');
-console.log(`[TeachBound-host] Listening on ${host}:${port}`);
+  await node.start()
 
-// The signalling server binds to 0.0.0.0, but clients must dial a real interface address.
-const dialHost = host === '0.0.0.0' ? '127.0.0.1' : host;
-console.log('[TeachBound-host] Client multiaddr (local dev):');
-console.log(`  /ip4/${dialHost}/tcp/${port}/ws/p2p-webrtc-star`);
-console.log('[TeachBound-host] Hosted demo signalling servers (not for production):');
-console.log('  /dns4/wrtc-star1.par.dwebops.pub/tcp/443/wss/p2p-webrtc-star');
-console.log('  /dns4/wrtc-star2.sjc.dwebops.pub/tcp/443/wss/p2p-webrtc-star');
+  console.log('[TeachBound-host] Relay node started')
+  console.log('[TeachBound-host] Peer ID:', node.peerId.toString())
+  console.log('[TeachBound-host] Listening on:')
+  console.log(`  /ip4/0.0.0.0/tcp/${PORT}/ws/p2p/${node.peerId.toString()}`)
+  console.log(`  /ip4/127.0.0.1/tcp/${PORT}/ws/p2p/${node.peerId.toString()}`)
+  console.log('')
+  console.log('[TeachBound-host] For client .env:')
+  console.log(`  REACT_APP_P2P_RELAY_ADDR=/ip4/127.0.0.1/tcp/${PORT}/ws/p2p/${node.peerId.toString()}`)
 
-async function shutdown() {
-  try {
-    console.log('\n[TeachBound-host] Stopping signalling server...');
-    await server.stop();
-  } finally {
-    process.exit(0);
+  // Log peer connections
+  node.addEventListener('peer:connect', (evt) => {
+    console.log('[TeachBound-host] Peer connected:', evt.detail.toString())
+  })
+
+  node.addEventListener('peer:disconnect', (evt) => {
+    console.log('[TeachBound-host] Peer disconnected:', evt.detail.toString())
+  })
+
+  // Subscribe to the main topic to relay messages
+  const TOPIC = 'teachbound/whiteboard'
+  node.services.pubsub.subscribe(TOPIC)
+  console.log(`[TeachBound-host] Subscribed to topic: ${TOPIC}`)
+
+  // Log messages (for debugging)
+  node.services.pubsub.addEventListener('message', (evt) => {
+    const { topic, from } = evt.detail
+    console.log(`[TeachBound-host] Message on ${topic} from ${from}`)
+  })
+
+  // Graceful shutdown
+  const shutdown = async () => {
+    console.log('\n[TeachBound-host] Shutting down...')
+    await node.stop()
+    process.exit(0)
   }
+
+  process.on('SIGINT', shutdown)
+  process.on('SIGTERM', shutdown)
 }
 
-process.on('SIGINT', shutdown);
-process.on('SIGTERM', shutdown);
+main().catch((err) => {
+  console.error('[TeachBound-host] Failed to start:', err)
+  process.exit(1)
+})
