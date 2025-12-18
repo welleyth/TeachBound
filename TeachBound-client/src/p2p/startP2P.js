@@ -1,7 +1,8 @@
 import { createLibp2p } from 'libp2p'
 import { noise } from '@chainsafe/libp2p-noise'
 import { yamux } from '@chainsafe/libp2p-yamux'
-import { gossipsub } from '@chainsafe/libp2p-gossipsub'
+// Using floodsub instead of gossipsub for reliable small-network messaging
+import { floodsub } from '@libp2p/floodsub'
 import { identify } from '@libp2p/identify'
 import { webRTC } from '@libp2p/webrtc'
 import { webSockets } from '@libp2p/websockets'
@@ -27,7 +28,6 @@ let _stopTimer = null
 let _dedupe = createDedupeCache()
 let _currentTopic = DEFAULT_P2P_TOPIC
 let _currentRoom = null
-let _relayAddr = null
 
 function _clearStopTimer() {
   if (_stopTimer != null) {
@@ -54,7 +54,7 @@ function _attachPubsubListener(node) {
     if (envelope?.id) {
       // Deduplicate by envelope ID
       if (_dedupe.has(envelope.id)) {
-        // Already seen (self-loop or gossipsub duplicate)
+        // Already seen (self-loop or floodsub duplicate)
         for (const cb of _onMessage) cb({ topic, from, data, text, envelope })
         return
       }
@@ -101,14 +101,8 @@ async function _createNode(relayMultiaddr) {
     streamMuxers: [yamux()],
     services: {
       identify: identify(),
-      pubsub: gossipsub({
-        emitSelf: false,
-        allowPublishToZeroTopicPeers: true,
-        // D and Dlo for small networks
-        D: 4,
-        Dlo: 2,
-        Dhi: 8
-      })
+      // Use floodsub for simpler, more reliable messaging (no mesh required)
+      pubsub: floodsub()
     },
     connectionManager: {
       maxConnections: 50,
@@ -172,7 +166,6 @@ export async function startP2P(relayAddr, opts = {}) {
   // Return existing node if already started
   if (_nodePromise) return _nodePromise
 
-  _relayAddr = relayAddr
   _nodePromise = (async () => {
     _currentTopic = topic
     _currentRoom =
@@ -264,7 +257,6 @@ export async function stopP2P() {
   _dedupe.clear()
   _currentTopic = DEFAULT_P2P_TOPIC
   _currentRoom = null
-  _relayAddr = null
 
   if (!node) return
 

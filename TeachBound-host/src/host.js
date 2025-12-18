@@ -1,7 +1,7 @@
 import { createLibp2p } from 'libp2p'
 import { noise } from '@chainsafe/libp2p-noise'
 import { yamux } from '@chainsafe/libp2p-yamux'
-import { gossipsub } from '@chainsafe/libp2p-gossipsub'
+import { floodsub } from '@libp2p/floodsub'
 import { identify } from '@libp2p/identify'
 import { webSockets } from '@libp2p/websockets'
 import { circuitRelayServer } from '@libp2p/circuit-relay-v2'
@@ -18,10 +18,8 @@ async function main() {
     streamMuxers: [yamux()],
     services: {
       identify: identify(),
-      pubsub: gossipsub({
-        emitSelf: false,
-        allowPublishToZeroTopicPeers: true
-      }),
+      // Use floodsub for simpler messaging (broadcasts to all peers)
+      pubsub: floodsub(),
       relay: circuitRelayServer({
         reservations: {
           maxReservations: 128,
@@ -56,10 +54,12 @@ async function main() {
     console.log('[TeachBound-host] Peer disconnected:', evt.detail.toString())
   })
 
-  // Subscribe to the main topic to relay messages
-  const TOPIC = 'teachbound/whiteboard'
-  node.services.pubsub.subscribe(TOPIC)
-  console.log(`[TeachBound-host] Subscribed to topic: ${TOPIC}`)
+  // Subscribe to common topics to relay messages
+  const TOPICS = ['teachbound/whiteboard', 'teachbound/demo', 'teachbound/test']
+  for (const topic of TOPICS) {
+    node.services.pubsub.subscribe(topic)
+    console.log(`[TeachBound-host] Subscribed to topic: ${topic}`)
+  }
 
   // Log messages (for debugging)
   node.services.pubsub.addEventListener('message', (evt) => {
