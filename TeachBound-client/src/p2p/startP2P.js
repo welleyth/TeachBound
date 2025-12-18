@@ -16,6 +16,30 @@ import {
 
 export const DEFAULT_P2P_TOPIC = 'teachbound/test';
 
+// Polyfill for older libs expecting multiaddr.protoCodes() (removed in @multiformats/multiaddr@13).
+// @libp2p/webrtc-star (and friends) still call protoCodes() internally.
+try {
+  const ma = multiaddr('/ip4/127.0.0.1');
+  const proto = Object.getPrototypeOf(ma);
+  if (typeof proto.protoCodes !== 'function') {
+    proto.protoCodes = function () {
+      return this.getComponents().map((c) => c.code);
+    };
+  }
+  if (typeof proto.protos !== 'function') {
+    proto.protos = function () {
+      return this.getComponents().map((c) => ({ code: c.code, name: c.name }));
+    };
+  }
+  if (typeof proto.stringTuples !== 'function') {
+    proto.stringTuples = function () {
+      return this.getComponents().map((c) => [c.code, c.value]);
+    };
+  }
+} catch {
+  // ignore
+}
+
 let _nodePromise = null;
 let _node = null;
 let _onMessage = new Set();
@@ -152,11 +176,19 @@ export async function startP2P(bootstrapAddr, opts = {}) {
 
     if (isWebRTCStar) {
       const star = webRTCStar();
+      // js-libp2p expects transports to implement listenFilter/dialFilter.
+      // The webrtc-star transport does not currently provide these, so we shim them.
+      const starTransport = (...args) => {
+        const t = star.transport(...args);
+        if (typeof t.listenFilter !== 'function') t.listenFilter = (addrs) => addrs;
+        if (typeof t.dialFilter !== 'function') t.dialFilter = (addrs) => addrs;
+        return t;
+      };
       _node = await _createNode({
         addresses: {
           listen: [bootstrapAddr],
         },
-        transports: [star.transport],
+        transports: [starTransport],
         peerDiscovery: [star.discovery],
       });
       _removePeerDiscoveryListener = _attachAutoDialOnDiscovery(_node);
@@ -207,7 +239,11 @@ export function publishP2PEvent(type, payload, opts = {}) {
   // Mark as seen so we don't re-process our own event if it is looped back to us.
   _dedupe.add(envelope.id);
 
-  _node.services.pubsub.publish(topic, encodeEnvelope(envelope));
+  const publishPromise = _node.services.pubsub.publish(topic, encodeEnvelope(envelope));
+  publishPromise.catch((err) => {
+    // Most common during early startup: no peers yet.
+    console.debug('[P2P] publish failed', err);
+  });
   return envelope;
 }
 
