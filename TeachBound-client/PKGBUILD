@@ -1,4 +1,4 @@
-# Maintainer: Eduard Tykhoniuk <eduard.tykhoniuk@student.uj.edu.pl>
+# Maintainers: Andrii Stolitnii <andrii.stolitnii@student.uj.edu.pl>, Eduard Tykhoniuk <eduard.tykhoniuk@student.uj.edu.pl>, Yuliia Tatarinova <yuliia.tatarinova@student.uj.edu.pl>
 pkgname=('TeachBound-client')
 pkgver=0.1.0
 pkgrel=1
