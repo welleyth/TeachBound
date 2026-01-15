@@ -20,6 +20,7 @@
     "@libp2p/floodsub": "^11.0.10",
     "@libp2p/identify": "^4.0.9",
     "@libp2p/websockets": "^10.1.2",
+    "dotenv-cli": "^11.0.0",
     "libp2p": "^3.1.2"
   }
 }

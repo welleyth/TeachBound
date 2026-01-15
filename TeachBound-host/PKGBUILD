@@ -1,0 +1,45 @@
+# Maintainer: Eduard Tykhoniuk <eduard.tykhoniuk@student.uj.edu.pl>
+pkgname=('TeachBound-host')
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Digital Whiteboard for Education and Collaboration (Server)"
+arch=(any)
+url="https://github.com/welleyth/TeachBound"
+license=('CC BY-NC 4.0')
+depends=('nodejs')
+makedepends=('npm')
+source=("TeachBound::git+https://github.com/welleyth/TeachBound.git#branch=add-libp2p")
+sha256sums=('SKIP')
+options=('!strip')
+
+build() {
+  cd "$srcdir/TeachBound/TeachBound-host"
+  npm ci
+}
+
+package() {
+  cd "$srcdir/TeachBound/TeachBound-host"
+
+  # install the source files in /usr/share
+  install -d "$pkgdir/usr/share/teachbound-host"
+  cp -r . "$pkgdir/usr/share/teachbound-host"
+
+  # launcher script
+  install -Dm755 /dev/stdin "$pkgdir/usr/bin/teachbound-host" <<'EOF'
+#!/bin/sh
+CONFIG_DIR="$HOME/.config/teachbound-host"
+ENV_FILE="$CONFIG_DIR/.env"
+
+mkdir -p "$CONFIG_DIR"
+
+if [ ! -f "$ENV_FILE" ]; then
+  cd /usr/share/teachbound-host || exit 1
+  npm run generate-env
+  mv .env "$ENV_FILE"
+fi
+
+cd /usr/share/teachbound-host || exit 1
+node -r dotenv/config src/host.js dotenv_config_path="$ENV_FILE"
+EOF
+}
+
