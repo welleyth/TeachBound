@@ -444,7 +444,17 @@ function App() {
               if (el?.id == null) continue;
               const key = String(el.id);
               const prevEl = beforeById.get(key);
-              if (!prevEl || prevEl !== el) upserts.push(el);
+              // Compare by content, not reference, to avoid rebroadcasting received elements
+              if (!prevEl) {
+                upserts.push(el);
+              } else if (prevEl !== el) {
+                // Only upsert if content actually changed
+                const prevJson = JSON.stringify(prevEl);
+                const currJson = JSON.stringify(el);
+                if (prevJson !== currJson) {
+                  upserts.push(el);
+                }
+              }
             }
 
             const deletes = [];
