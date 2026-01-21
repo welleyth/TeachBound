@@ -137,12 +137,21 @@ function App() {
       }
 
       case P2P_EVENT_TYPES.SNAPSHOT_RESPONSE: {
-        if (hasAppliedSnapshotRef.current) return;
-        if (hasLocalEditsSinceP2PStartRef.current) return;
+        console.log('[P2P SNAPSHOT] Received snapshot response, hasApplied:', hasAppliedSnapshotRef.current, 'hasLocalEdits:', hasLocalEditsSinceP2PStartRef.current);
+        
+        if (hasAppliedSnapshotRef.current) {
+          console.log('[P2P SNAPSHOT] Already applied snapshot, ignoring');
+          return;
+        }
+        if (hasLocalEditsSinceP2PStartRef.current) {
+          console.log('[P2P SNAPSHOT] Has local edits, ignoring');
+          return;
+        }
 
         const incoming = evt?.payload?.elements;
         if (!Array.isArray(incoming)) return;
 
+        console.log('[P2P SNAPSHOT] Candidate with', incoming.length, 'elements');
         const candidate = { elements: incoming, count: incoming.length };
         const best = snapshotCandidateRef.current;
         if (!best || candidate.count > best.count) snapshotCandidateRef.current = candidate;
@@ -153,10 +162,12 @@ function App() {
 
             // If the user made local edits while we waited, don't overwrite them.
             if (hasLocalEditsSinceP2PStartRef.current) {
+              console.log('[P2P SNAPSHOT] Timer fired but has local edits, aborting');
               snapshotCandidateRef.current = null;
               return;
             }
             if (hasAppliedSnapshotRef.current) {
+              console.log('[P2P SNAPSHOT] Timer fired but already applied, aborting');
               snapshotCandidateRef.current = null;
               return;
             }
@@ -165,6 +176,7 @@ function App() {
             snapshotCandidateRef.current = null;
             if (!chosen) return;
 
+            console.log('[P2P SNAPSHOT] APPLYING SNAPSHOT with', chosen.elements.length, 'elements');
             hasAppliedSnapshotRef.current = true;
             didRequestSnapshotRef.current = true;
 
@@ -191,17 +203,32 @@ function App() {
         const incoming = evt?.payload?.elements;
         if (!Array.isArray(incoming) || incoming.length === 0) return;
 
+        console.log('[P2P UPSERT] Received', incoming.length, 'elements from', evt?.from);
+        console.log('[P2P UPSERT] Incoming IDs:', incoming.map(e => e?.id).join(', '));
+
         // Merge incoming elements into CURRENT history entry (don't create new entry)
         // This prevents race conditions with local drawing and doesn't pollute undo history
         setHistory((prevHistory) => {
           const currentStep = historyStepRef.current;
-          if (currentStep < 0 || currentStep >= prevHistory.length) return prevHistory;
+          console.log('[P2P UPSERT] currentStep:', currentStep, 'history.length:', prevHistory.length);
+          
+          if (currentStep < 0 || currentStep >= prevHistory.length) {
+            console.warn('[P2P UPSERT] Invalid currentStep, skipping');
+            return prevHistory;
+          }
 
           const currentElements = prevHistory[currentStep] || [];
+          console.log('[P2P UPSERT] Current elements count:', currentElements.length);
+          console.log('[P2P UPSERT] Current element IDs:', currentElements.map(e => e?.id).join(', '));
+          
           const indexById = new Map(currentElements.map((el, idx) => [String(el.id), idx]));
           const next = [...currentElements];
 
           let changed = false;
+          let added = 0;
+          let updated = 0;
+          let skipped = 0;
+          
           for (const el of incoming) {
             if (!el || el.id == null) continue;
             const key = String(el.id);
@@ -210,6 +237,7 @@ function App() {
               indexById.set(key, next.length);
               next.push(el);
               changed = true;
+              added++;
             } else if (next[idx] !== el) {
               // Only update if different (avoid unnecessary re-renders)
               const prevJson = JSON.stringify(next[idx]);
@@ -217,15 +245,27 @@ function App() {
               if (prevJson !== currJson) {
                 next[idx] = el;
                 changed = true;
+                updated++;
+              } else {
+                skipped++;
               }
+            } else {
+              skipped++;
             }
           }
 
-          if (!changed) return prevHistory;
+          console.log('[P2P UPSERT] Result: added:', added, 'updated:', updated, 'skipped:', skipped, 'changed:', changed);
+          console.log('[P2P UPSERT] New elements count:', next.length);
+
+          if (!changed) {
+            console.log('[P2P UPSERT] No changes, returning same history');
+            return prevHistory;
+          }
 
           // Replace current entry in-place (no new history step)
           const newHistory = [...prevHistory];
           newHistory[currentStep] = next;
+          console.log('[P2P UPSERT] Updated history at step', currentStep);
           return newHistory;
         });
         return;
@@ -236,15 +276,30 @@ function App() {
         if (!Array.isArray(ids) || ids.length === 0) return;
         const idsSet = new Set(ids.map((id) => String(id)));
 
+        console.log('[P2P DELETE] Received delete for IDs:', ids.join(', '), 'from', evt?.from);
+
         // Remove elements from CURRENT history entry (don't create new entry)
         setHistory((prevHistory) => {
           const currentStep = historyStepRef.current;
-          if (currentStep < 0 || currentStep >= prevHistory.length) return prevHistory;
+          console.log('[P2P DELETE] currentStep:', currentStep, 'history.length:', prevHistory.length);
+          
+          if (currentStep < 0 || currentStep >= prevHistory.length) {
+            console.warn('[P2P DELETE] Invalid currentStep, skipping');
+            return prevHistory;
+          }
 
           const currentElements = prevHistory[currentStep] || [];
+          console.log('[P2P DELETE] Current elements count:', currentElements.length);
+          
           const next = currentElements.filter((el) => !idsSet.has(String(el.id)));
+          const removed = currentElements.length - next.length;
+          
+          console.log('[P2P DELETE] Removed', removed, 'elements, new count:', next.length);
 
-          if (next.length === currentElements.length) return prevHistory;
+          if (next.length === currentElements.length) {
+            console.log('[P2P DELETE] No elements removed, returning same history');
+            return prevHistory;
+          }
 
           const newHistory = [...prevHistory];
           newHistory[currentStep] = next;
@@ -392,10 +447,16 @@ function App() {
       const saved = localStorage.getItem('teachbound-canvas-data');
       if (saved) {
         const data = JSON.parse(saved);
-        if (data.history && Array.isArray(data.history)) {
+        if (data.history && Array.isArray(data.history) && data.history.length > 0) {
+          // IMPORTANT: Validate historyStep is within bounds
+          let historyStep = data.historyStep || 0;
+          if (historyStep < 0) historyStep = 0;
+          if (historyStep >= data.history.length) historyStep = data.history.length - 1;
+          
+          console.log('[LOAD] Loaded from localStorage: history.length:', data.history.length, 'historyStep:', historyStep);
           return {
             history: data.history,
-            historyStep: data.historyStep || 0,
+            historyStep: historyStep,
           };
         }
       }
@@ -410,10 +471,21 @@ function App() {
   const [historyStep, setHistoryStep] = useState(initialState.historyStep);
   const [lastSaveTime, setLastSaveTime] = useState(Date.now());
   const [showSaveIndicator, setShowSaveIndicator] = useState(false);
-  const elements = history[historyStep] || [];
+  // SAFEGUARD: Ensure historyStep is always within valid bounds
+  const safeHistoryStep = Math.max(0, Math.min(historyStep, history.length - 1));
+  if (safeHistoryStep !== historyStep) {
+    console.warn('[RENDER] historyStep out of bounds! Correcting from', historyStep, 'to', safeHistoryStep);
+    // Schedule correction (can't call setState during render)
+    setTimeout(() => setHistoryStep(safeHistoryStep), 0);
+  }
+  
+  const elements = history[safeHistoryStep] || [];
   // Keep current elements and history step available to p2p listeners without re-subscribing.
   elementsRef.current = elements;
-  historyStepRef.current = historyStep;
+  historyStepRef.current = safeHistoryStep;
+  
+  // Debug logging for render
+  console.log('[RENDER] historyStep:', historyStep, '(safe:', safeHistoryStep, ') history.length:', history.length, 'elements.length:', elements.length);
 
   const canvasRef = useRef(null);
 
@@ -429,18 +501,26 @@ function App() {
 
   const updateElementsAndHistory = useCallback(
     (newElementsOrUpdater) => {
+      console.log('[LOCAL UPDATE] updateElementsAndHistory called, historyStep:', historyStep);
+      
       setHistory((prevHistory) => {
         const currentElementsState = prevHistory[historyStep] || [];
+        console.log('[LOCAL UPDATE] prevHistory.length:', prevHistory.length, 'currentElementsState.length:', currentElementsState.length);
+        console.log('[LOCAL UPDATE] Current element IDs:', currentElementsState.map(e => e?.id).join(', '));
+        
         const updatedElementsRaw =
           typeof newElementsOrUpdater === 'function'
             ? newElementsOrUpdater(currentElementsState)
             : newElementsOrUpdater;
 
         const updatedElements = Array.isArray(updatedElementsRaw) ? updatedElementsRaw : [];
+        console.log('[LOCAL UPDATE] After update, elements count:', updatedElements.length);
+        console.log('[LOCAL UPDATE] Updated element IDs:', updatedElements.map(e => e?.id).join(', '));
 
         // Broadcast minimal diffs (upsert/delete) for collaborative mode.
         const suppressBroadcast = suppressBroadcastOnceRef.current || isApplyingRemoteRef.current;
         suppressBroadcastOnceRef.current = false;
+        console.log('[LOCAL UPDATE] suppressBroadcast:', suppressBroadcast);
 
         if (!suppressBroadcast && getP2PNode()) {
           try {
@@ -494,10 +574,13 @@ function App() {
               if (!afterById.has(key)) deletes.push(el.id);
             }
 
+            console.log('[LOCAL UPDATE] Broadcasting - upserts:', upserts.length, 'deletes:', deletes.length);
             if (upserts.length > 0) {
+              console.log('[LOCAL UPDATE] Upsert IDs:', upserts.map(e => e?.id).join(', '));
               publishP2PEvent(P2P_EVENT_TYPES.ELEMENT_UPSERT, { elements: upserts });
             }
             if (deletes.length > 0) {
+              console.log('[LOCAL UPDATE] Delete IDs:', deletes.join(', '));
               publishP2PEvent(P2P_EVENT_TYPES.ELEMENT_DELETE, { ids: deletes });
             }
           } catch (err) {
@@ -505,12 +588,24 @@ function App() {
           }
         }
 
-        const newHistorySlice = prevHistory.slice(0, historyStep + 1);
-        return [...newHistorySlice, updatedElements];
+        // Clamp historyStep to valid range before slicing (in case it's out of bounds)
+        const safeHistoryStep = Math.max(0, Math.min(historyStep, prevHistory.length - 1));
+        const newHistorySlice = prevHistory.slice(0, safeHistoryStep + 1);
+        const newHistory = [...newHistorySlice, updatedElements];
+        console.log('[LOCAL UPDATE] Creating new history entry. safeHistoryStep:', safeHistoryStep, 'newHistory.length:', newHistory.length, 'new element at index:', newHistory.length - 1);
+        return newHistory;
       });
-      setHistoryStep((prevStep) => prevStep + 1);
+      // Set historyStep to point to the newly added entry
+      // The new entry is at index (safeHistoryStep + 1), which equals newHistory.length - 1
+      setHistoryStep(() => {
+        // We need to compute the safe step the same way as in setHistory
+        const safeStep = Math.max(0, Math.min(historyStep, history.length - 1));
+        const newStep = safeStep + 1;
+        console.log('[LOCAL UPDATE] Setting historyStep to', newStep, '(was:', historyStep, 'safe was:', safeStep, ')');
+        return newStep;
+      });
     },
-    [historyStep]
+    [historyStep, history.length]
   );
 
   // Assign during render so it's available before effects (avoids missing early p2p events).
