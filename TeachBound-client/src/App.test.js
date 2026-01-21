@@ -1,10 +1,8 @@
 import { render, screen } from '@testing-library/react';
 
-// Disable P2P in tests even if `.env` is present.
-process.env.REACT_APP_P2P_SIGNALING_ADDR = '';
-process.env.REACT_APP_P2P_HOST = '';
-
 // libp2p is ESM-only and not needed for the React component unit test.
+// P2P config is now in localStorage, and window.prompt returns null in jsdom,
+// so P2P will be disabled by default in tests.
 // Mock the P2P module so Jest doesn't try to resolve libp2p in Node.
 jest.mock('./p2p/startP2P', () => ({
   addP2PEventListener: () => () => {},

@@ -16,7 +16,68 @@ import { generateElementId } from './utils/ids';
 const APP_NAME = 'Teach Bound';
 const APP_SUBTITLE = 'Digital White Board';
 
+// --- P2P Configuration from localStorage ---
+const P2P_CONFIG_KEY = 'teachbound-p2p-config';
+
+function getP2PConfig() {
+  try {
+    const saved = localStorage.getItem(P2P_CONFIG_KEY);
+    if (saved) {
+      return JSON.parse(saved);
+    }
+  } catch (e) {
+    console.warn('Failed to load P2P config from localStorage:', e);
+  }
+  return null;
+}
+
+function setP2PConfig(config) {
+  try {
+    localStorage.setItem(P2P_CONFIG_KEY, JSON.stringify(config));
+  } catch (e) {
+    console.warn('Failed to save P2P config to localStorage:', e);
+  }
+}
+
+function promptForP2PConfig(existingConfig = null) {
+  const defaultAddr = existingConfig?.signalingAddr || '';
+  const defaultRoom = existingConfig?.room || '';
+
+  const signalingAddr = window.prompt(
+    'Enter P2P signaling server address:\n(e.g. /ip4/127.0.0.1/tcp/9090/ws/p2p/12D3KooW...)',
+    defaultAddr
+  );
+
+  if (signalingAddr === null) {
+    return null; // User cancelled
+  }
+
+  if (!signalingAddr.trim()) {
+    window.alert('Signaling address is required for P2P mode.');
+    return null;
+  }
+
+  const room = window.prompt(
+    'Enter room name (optional, leave empty for default):',
+    defaultRoom
+  );
+
+  if (room === null) {
+    return null; // User cancelled
+  }
+
+  const config = {
+    signalingAddr: signalingAddr.trim(),
+    room: room.trim() || null,
+  };
+
+  setP2PConfig(config);
+  return config;
+}
+
 function App() {
+  const [p2pConfig, setP2pConfigState] = useState(() => getP2PConfig());
+  const [p2pConfigVersion, setP2pConfigVersion] = useState(0);
   const [p2pStatus, setP2pStatus] = useState({
     state: 'disabled', // disabled | starting | running | error
     peerId: null,
@@ -27,6 +88,15 @@ function App() {
     sync: 'idle', // idle | requesting | synced
     lastSyncAt: null,
   });
+
+  // Handler to change P2P settings
+  const handleChangeP2PSettings = useCallback(() => {
+    const newConfig = promptForP2PConfig(p2pConfig);
+    if (newConfig) {
+      setP2pConfigState(newConfig);
+      setP2pConfigVersion((v) => v + 1); // Force reconnection
+    }
+  }, [p2pConfig]);
 
   const isApplyingRemoteRef = useRef(false);
   const suppressBroadcastOnceRef = useRef(false);
@@ -167,16 +237,23 @@ function App() {
   }, []);
 
   useEffect(() => {
-    const signalingAddr = process.env.REACT_APP_P2P_SIGNALING_ADDR;
-    const legacyHostAddr = process.env.REACT_APP_P2P_HOST;
-    const bootstrapAddr = signalingAddr ?? legacyHostAddr;
+    // On first load, prompt for config if not set
+    let currentConfig = p2pConfig;
+    if (!currentConfig) {
+      currentConfig = promptForP2PConfig();
+      if (currentConfig) {
+        setP2pConfigState(currentConfig);
+      }
+    }
 
-    if (!bootstrapAddr) {
-      console.warn('No REACT_APP_P2P_SIGNALING_ADDR (or legacy REACT_APP_P2P_HOST) set');
+    if (!currentConfig?.signalingAddr) {
+      console.warn('No P2P signaling address configured');
+      setP2pStatus((prev) => ({ ...prev, state: 'disabled' }));
       return;
     }
 
-    const room = process.env.REACT_APP_P2P_ROOM;
+    const bootstrapAddr = currentConfig.signalingAddr;
+    const room = currentConfig.room;
     const topic = room ? `teachbound/${room}` : undefined;
 
     let isActive = true;
@@ -273,7 +350,7 @@ function App() {
       snapshotCandidateRef.current = null;
       scheduleStopP2P(0);
     };
-  }, [applyRemoteP2PEvent]);
+  }, [applyRemoteP2PEvent, p2pConfig, p2pConfigVersion]);
 
   const [selectedTool, setSelectedTool] = useState('pen');
   const [strokeColor, setStrokeColor] = useState('#000000');
@@ -924,51 +1001,78 @@ function App() {
           <h1 className="app-title">{APP_NAME}</h1>
           <span className="app-subtitle">{APP_SUBTITLE}</span>
         </div>
-        {p2pStatus.state !== 'disabled' && (
-          <div className="p2p-status">
-            <span className="p2p-status-label">P2P:</span>{' '}
-            {p2pStatus.state === 'starting' && 'starting…'}
-            {p2pStatus.state === 'running' && (
-              <>
-                running ({p2pStatus.peers} peers){' '}
-                {p2pStatus.room && (
-                  <>
-                    · room <code>{p2pStatus.room}</code>{' '}
-                  </>
-                )}
-                {p2pStatus.sync && (
-                  <>
-                    · sync <code>{p2pStatus.sync}</code>{' '}
-                  </>
-                )}
-                <button
-                  type="button"
-                  className="p2p-resync-button"
-                  onClick={handleP2PResync}
-                  disabled={p2pStatus.peers <= 0}
-                  title={
-                    p2pStatus.peers <= 0 ? 'No peers connected' : 'Request snapshot from peers'
-                  }
-                >
-                  Resync
-                </button>{' '}
-                {p2pStatus.peerId && (
-                  <span className="p2p-status-peerid">
-                    peerId <code>{p2pStatus.peerId}</code>
-                  </span>
-                )}
+        <div className="p2p-status">
+          <span className="p2p-status-label">P2P:</span>{' '}
+          {p2pStatus.state === 'disabled' && (
+            <>
+              disabled{' '}
+              <button
+                type="button"
+                className="p2p-settings-button"
+                onClick={handleChangeP2PSettings}
+                title="Configure P2P connection"
+              >
+                Configure
+              </button>
+            </>
+          )}
+          {p2pStatus.state === 'starting' && 'starting…'}
+          {p2pStatus.state === 'running' && (
+            <>
+              running ({p2pStatus.peers} peers){' '}
+              {p2pStatus.room && (
+                <>
+                  · room <code>{p2pStatus.room}</code>{' '}
+                </>
+              )}
+              {p2pStatus.sync && (
+                <>
+                  · sync <code>{p2pStatus.sync}</code>{' '}
+                </>
+              )}
+              <button
+                type="button"
+                className="p2p-resync-button"
+                onClick={handleP2PResync}
+                disabled={p2pStatus.peers <= 0}
+                title={
+                  p2pStatus.peers <= 0 ? 'No peers connected' : 'Request snapshot from peers'
+                }
+              >
+                Resync
+              </button>{' '}
+              <button
+                type="button"
+                className="p2p-settings-button"
+                onClick={handleChangeP2PSettings}
+                title="Change P2P server settings"
+              >
+                Settings
+              </button>{' '}
+              {p2pStatus.peerId && (
                 <span className="p2p-status-peerid">
-                  · elements <code>{elements.length}</code>
+                  peerId <code>{p2pStatus.peerId}</code>
                 </span>
-              </>
-            )}
-            {p2pStatus.state === 'error' && (
-              <>
-                error <code>{p2pStatus.error}</code>
-              </>
-            )}
-          </div>
-        )}
+              )}
+              <span className="p2p-status-peerid">
+                · elements <code>{elements.length}</code>
+              </span>
+            </>
+          )}
+          {p2pStatus.state === 'error' && (
+            <>
+              error <code>{p2pStatus.error}</code>{' '}
+              <button
+                type="button"
+                className="p2p-settings-button"
+                onClick={handleChangeP2PSettings}
+                title="Change P2P server settings"
+              >
+                Settings
+              </button>
+            </>
+          )}
+        </div>
         <p className="app-slogan">
           <a
             href="https://github.com/sai-educ/TeachBound"

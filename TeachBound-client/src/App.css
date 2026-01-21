@@ -89,7 +89,8 @@
   margin-left: 6px;
 }
 
-.p2p-resync-button {
+.p2p-resync-button,
+.p2p-settings-button {
   margin-left: 6px;
   padding: 2px 8px;
   border-radius: 6px;
@@ -97,15 +98,26 @@
   background: #ffffff;
   color: #374151;
   cursor: pointer;
+  font-size: 0.82em;
 }
 
-.p2p-resync-button:disabled {
+.p2p-resync-button:disabled,
+.p2p-settings-button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-.p2p-resync-button:hover:not(:disabled) {
+.p2p-resync-button:hover:not(:disabled),
+.p2p-settings-button:hover:not(:disabled) {
   border-color: #9ca3af;
+}
+
+.p2p-settings-button {
+  background: #f3f4f6;
+}
+
+.p2p-settings-button:hover:not(:disabled) {
+  background: #e5e7eb;
 }
 
 .main-content-wrapper {
