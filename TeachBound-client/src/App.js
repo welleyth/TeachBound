@@ -40,39 +40,44 @@ function setP2PConfig(config) {
 }
 
 function promptForP2PConfig(existingConfig = null) {
-  const defaultAddr = existingConfig?.signalingAddr || '';
-  const defaultRoom = existingConfig?.room || '';
+  try {
+    const defaultAddr = existingConfig?.signalingAddr || '';
+    const defaultRoom = existingConfig?.room || '';
 
-  const signalingAddr = window.prompt(
-    'Enter P2P signaling server address:\n(e.g. /ip4/127.0.0.1/tcp/9090/ws/p2p/12D3KooW...)',
-    defaultAddr
-  );
+    const signalingAddr = window.prompt(
+      'Enter P2P signaling server address:\n(e.g. /ip4/127.0.0.1/tcp/9090/ws/p2p/12D3KooW...)',
+      defaultAddr
+    );
 
-  if (signalingAddr === null) {
-    return null; // User cancelled
-  }
+    if (signalingAddr === null) {
+      return null; // User cancelled
+    }
 
-  if (!signalingAddr.trim()) {
-    window.alert('Signaling address is required for P2P mode.');
+    if (!signalingAddr.trim()) {
+      window.alert('Signaling address is required for P2P mode.');
+      return null;
+    }
+
+    const room = window.prompt(
+      'Enter room name (optional, leave empty for default):',
+      defaultRoom
+    );
+
+    if (room === null) {
+      return null; // User cancelled
+    }
+
+    const config = {
+      signalingAddr: signalingAddr.trim(),
+      room: room.trim() || null,
+    };
+
+    setP2PConfig(config);
+    return config;
+  } catch (e) {
+    console.warn('Failed to prompt for P2P config:', e);
     return null;
   }
-
-  const room = window.prompt(
-    'Enter room name (optional, leave empty for default):',
-    defaultRoom
-  );
-
-  if (room === null) {
-    return null; // User cancelled
-  }
-
-  const config = {
-    signalingAddr: signalingAddr.trim(),
-    room: room.trim() || null,
-  };
-
-  setP2PConfig(config);
-  return config;
 }
 
 function App() {
@@ -237,23 +242,15 @@ function App() {
   }, []);
 
   useEffect(() => {
-    // On first load, prompt for config if not set
-    let currentConfig = p2pConfig;
-    if (!currentConfig) {
-      currentConfig = promptForP2PConfig();
-      if (currentConfig) {
-        setP2pConfigState(currentConfig);
-      }
-    }
-
-    if (!currentConfig?.signalingAddr) {
-      console.warn('No P2P signaling address configured');
+    // If no config is set, show disabled state (user can click Configure button)
+    if (!p2pConfig?.signalingAddr) {
+      console.warn('No P2P signaling address configured - click Configure to set up');
       setP2pStatus((prev) => ({ ...prev, state: 'disabled' }));
       return;
     }
 
-    const bootstrapAddr = currentConfig.signalingAddr;
-    const room = currentConfig.room;
+    const bootstrapAddr = p2pConfig.signalingAddr;
+    const room = p2pConfig.room;
     const topic = room ? `teachbound/${room}` : undefined;
 
     let isActive = true;
