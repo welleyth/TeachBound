@@ -111,6 +111,7 @@ function App() {
   const snapshotCandidateRef = useRef(null); // { elements: any[], count: number }
   const snapshotTimerRef = useRef(null);
   const elementsRef = useRef([]);
+  const historyStepRef = useRef(0); // Track current history step for P2P updates
 
   // Keep a ref to the latest updateElementsAndHistory to avoid stale closures in p2p listeners.
   const updateElementsAndHistoryRef = useRef(null);
@@ -190,11 +191,17 @@ function App() {
         const incoming = evt?.payload?.elements;
         if (!Array.isArray(incoming) || incoming.length === 0) return;
 
-        suppressBroadcastOnceRef.current = true;
-        updateElementsAndHistoryRef.current?.((prevElements) => {
-          const indexById = new Map(prevElements.map((el, idx) => [String(el.id), idx]));
-          const next = [...prevElements];
+        // Merge incoming elements into CURRENT history entry (don't create new entry)
+        // This prevents race conditions with local drawing and doesn't pollute undo history
+        setHistory((prevHistory) => {
+          const currentStep = historyStepRef.current;
+          if (currentStep < 0 || currentStep >= prevHistory.length) return prevHistory;
 
+          const currentElements = prevHistory[currentStep] || [];
+          const indexById = new Map(currentElements.map((el, idx) => [String(el.id), idx]));
+          const next = [...currentElements];
+
+          let changed = false;
           for (const el of incoming) {
             if (!el || el.id == null) continue;
             const key = String(el.id);
@@ -202,12 +209,24 @@ function App() {
             if (idx == null) {
               indexById.set(key, next.length);
               next.push(el);
-            } else {
-              next[idx] = el;
+              changed = true;
+            } else if (next[idx] !== el) {
+              // Only update if different (avoid unnecessary re-renders)
+              const prevJson = JSON.stringify(next[idx]);
+              const currJson = JSON.stringify(el);
+              if (prevJson !== currJson) {
+                next[idx] = el;
+                changed = true;
+              }
             }
           }
 
-          return next;
+          if (!changed) return prevHistory;
+
+          // Replace current entry in-place (no new history step)
+          const newHistory = [...prevHistory];
+          newHistory[currentStep] = next;
+          return newHistory;
         });
         return;
       }
@@ -217,10 +236,20 @@ function App() {
         if (!Array.isArray(ids) || ids.length === 0) return;
         const idsSet = new Set(ids.map((id) => String(id)));
 
-        suppressBroadcastOnceRef.current = true;
-        updateElementsAndHistoryRef.current?.((prevElements) =>
-          prevElements.filter((el) => !idsSet.has(String(el.id)))
-        );
+        // Remove elements from CURRENT history entry (don't create new entry)
+        setHistory((prevHistory) => {
+          const currentStep = historyStepRef.current;
+          if (currentStep < 0 || currentStep >= prevHistory.length) return prevHistory;
+
+          const currentElements = prevHistory[currentStep] || [];
+          const next = currentElements.filter((el) => !idsSet.has(String(el.id)));
+
+          if (next.length === currentElements.length) return prevHistory;
+
+          const newHistory = [...prevHistory];
+          newHistory[currentStep] = next;
+          return newHistory;
+        });
         return;
       }
 
@@ -382,8 +411,9 @@ function App() {
   const [lastSaveTime, setLastSaveTime] = useState(Date.now());
   const [showSaveIndicator, setShowSaveIndicator] = useState(false);
   const elements = history[historyStep] || [];
-  // Keep current elements available to p2p listeners without re-subscribing.
+  // Keep current elements and history step available to p2p listeners without re-subscribing.
   elementsRef.current = elements;
+  historyStepRef.current = historyStep;
 
   const canvasRef = useRef(null);
 
