@@ -1,0 +1,12 @@
+[Unit]
+Description=Teachbound Host
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/teachbound-host
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+
