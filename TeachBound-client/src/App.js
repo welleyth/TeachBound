@@ -362,8 +362,12 @@ function App() {
         }));
 
         // Reset snapshot negotiation state for this session.
-        hasLocalEditsSinceP2PStartRef.current = false;
-        hasAppliedSnapshotRef.current = false;
+        // BUT if we already have local elements (from localStorage), don't overwrite them with peer data
+        const hasLocalElements = elementsRef.current && elementsRef.current.length > 0;
+        console.log('[P2P INIT] Starting P2P, hasLocalElements:', hasLocalElements, 'count:', elementsRef.current?.length || 0);
+        
+        hasLocalEditsSinceP2PStartRef.current = hasLocalElements; // Preserve local data if we have any
+        hasAppliedSnapshotRef.current = hasLocalElements; // Don't apply snapshot if we have local data
         didRequestSnapshotRef.current = false;
         snapshotCandidateRef.current = null;
         if (snapshotTimerRef.current != null) {
@@ -445,23 +449,39 @@ function App() {
   const loadFromLocalStorage = () => {
     try {
       const saved = localStorage.getItem('teachbound-canvas-data');
+      console.log('[LOAD] localStorage raw:', saved ? `${saved.length} chars` : 'null');
+      
       if (saved) {
         const data = JSON.parse(saved);
+        console.log('[LOAD] Parsed data:', {
+          hasHistory: !!data.history,
+          historyLength: data.history?.length,
+          historyStep: data.historyStep,
+          timestamp: data.timestamp ? new Date(data.timestamp).toISOString() : 'none'
+        });
+        
         if (data.history && Array.isArray(data.history) && data.history.length > 0) {
           // IMPORTANT: Validate historyStep is within bounds
           let historyStep = data.historyStep || 0;
           if (historyStep < 0) historyStep = 0;
           if (historyStep >= data.history.length) historyStep = data.history.length - 1;
           
-          console.log('[LOAD] Loaded from localStorage: history.length:', data.history.length, 'historyStep:', historyStep);
+          // Count elements at current step
+          const elementsAtStep = data.history[historyStep] || [];
+          console.log('[LOAD] Loading from localStorage: history.length:', data.history.length, 'historyStep:', historyStep, 'elements at step:', elementsAtStep.length);
+          
           return {
             history: data.history,
             historyStep: historyStep,
           };
+        } else {
+          console.log('[LOAD] Invalid history data, using default');
         }
+      } else {
+        console.log('[LOAD] No saved data in localStorage');
       }
     } catch (error) {
-      console.error('Error loading from localStorage:', error);
+      console.error('[LOAD] Error loading from localStorage:', error);
     }
     return { history: [[]], historyStep: 0 };
   };
@@ -777,20 +797,26 @@ function App() {
   // Auto-save to localStorage
   const saveToLocalStorage = useCallback(() => {
     try {
+      // Get current elements count for logging
+      const currentElements = history[Math.min(historyStep, history.length - 1)] || [];
+      
       const dataToSave = {
         history: history,
         historyStep: historyStep,
         timestamp: Date.now(),
       };
-      localStorage.setItem('teachbound-canvas-data', JSON.stringify(dataToSave));
+      const jsonStr = JSON.stringify(dataToSave);
+      console.log('[SAVE] Saving to localStorage: history.length:', history.length, 'historyStep:', historyStep, 'currentElements:', currentElements.length, 'size:', jsonStr.length, 'chars');
+      
+      localStorage.setItem('teachbound-canvas-data', jsonStr);
       setLastSaveTime(Date.now());
       setShowSaveIndicator(true);
       setTimeout(() => setShowSaveIndicator(false), 2000);
     } catch (error) {
-      console.error('Error saving to localStorage:', error);
+      console.error('[SAVE] Error saving to localStorage:', error);
       // If localStorage is full, try to clear old data
       if (error.name === 'QuotaExceededError') {
-        console.warn('localStorage quota exceeded, clearing old data');
+        console.warn('[SAVE] localStorage quota exceeded, clearing old data');
         localStorage.removeItem('teachbound-canvas-data');
       }
     }
@@ -810,7 +836,10 @@ function App() {
   // Save immediately when history changes (debounced)
   useEffect(() => {
     const saveTimer = setTimeout(() => {
-      if (history.length > 0 && history[0].length > 0) {
+      // Check if current elements exist (not history[0], but current historyStep)
+      const currentElements = history[Math.min(historyStep, history.length - 1)] || [];
+      if (history.length > 0 && currentElements.length > 0) {
+        console.log('[SAVE] Auto-saving, elements:', currentElements.length);
         saveToLocalStorage();
       }
     }, 1000);
