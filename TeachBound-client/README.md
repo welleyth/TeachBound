@@ -63,7 +63,7 @@ Teach Bound is an open-source digital whiteboard application built with JavaScri
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/sai-educ/TeachBound.git
+   git clone https://github.com/Student-Team-Projects/TeachBound
    cd TeachBound
    ```
 
@@ -147,7 +147,7 @@ This means:
 
 For questions, suggestions, or support:
 
-- Open an issue on [GitHub](https://github.com/sai-educ/TeachBound/issues)
+- Open an issue on [GitHub](https://github.com/Student-Team-Projects/TeachBound/issues)
 - Visit our website: [https://teachbound.com](https://teachbound.com)
 
 ---
