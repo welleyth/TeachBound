@@ -53,7 +53,9 @@
   color: #3b82f6;
   text-decoration: none;
   font-weight: 600;
-  transition: color 0.2s ease-in-out, text-decoration 0.2s ease-in-out;
+  transition:
+    color 0.2s ease-in-out,
+    text-decoration 0.2s ease-in-out;
 }
 
 .app-slogan a:hover {
@@ -63,6 +65,59 @@
 
 .app-slogan a:active {
   color: #1d4ed8;
+}
+
+/* --- P2P status (debug-level, minimal UI) --- */
+.p2p-status {
+  margin-top: 6px;
+  font-size: 0.85rem;
+  opacity: 0.85;
+}
+
+.p2p-status code {
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
+    monospace;
+  font-size: 0.82em;
+}
+
+.p2p-status-label {
+  font-weight: 600;
+}
+
+.p2p-status-peerid {
+  margin-left: 6px;
+}
+
+.p2p-resync-button,
+.p2p-settings-button {
+  margin-left: 6px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  color: #374151;
+  cursor: pointer;
+  font-size: 0.82em;
+}
+
+.p2p-resync-button:disabled,
+.p2p-settings-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.p2p-resync-button:hover:not(:disabled),
+.p2p-settings-button:hover:not(:disabled) {
+  border-color: #9ca3af;
+}
+
+.p2p-settings-button {
+  background: #f3f4f6;
+}
+
+.p2p-settings-button:hover:not(:disabled) {
+  background: #e5e7eb;
 }
 
 .main-content-wrapper {
@@ -120,21 +175,21 @@
   .app-header {
     padding: 10px 15px;
   }
-  
+
   .app-title-container {
     flex-direction: column;
     gap: 2px;
     align-items: flex-start;
   }
-  
+
   .app-title {
     font-size: 1.4em;
   }
-  
+
   .app-subtitle {
     font-size: 0.9em;
   }
-  
+
   .app-slogan {
     font-size: 0.8em;
   }
@@ -144,15 +199,15 @@
   .app-header {
     padding: 8px 12px;
   }
-  
+
   .app-title {
     font-size: 1.3em;
   }
-  
+
   .app-subtitle {
     font-size: 0.85em;
   }
-  
+
   .app-slogan {
     font-size: 0.75em;
   }

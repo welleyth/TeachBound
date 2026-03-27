@@ -1,0 +1,12 @@
+[Unit]
+Description=Teachbound Client
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/teachbound-client
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+

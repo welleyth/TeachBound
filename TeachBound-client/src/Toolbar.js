@@ -2,26 +2,45 @@
 import React, { useState, useRef, useEffect } from 'react';
 import './Toolbar.css';
 import {
-  PenTool, Eraser, StickyNote as StickyNoteIcon,
-  Undo, Redo, Trash2, Download, Square, Circle, Triangle,
-  Minus, ArrowRight, Type, MousePointer, Trash, ChevronDown, Shapes, Settings,
-  Highlighter, Copy, Clipboard, Save, Image
+  PenTool,
+  Eraser,
+  StickyNote as StickyNoteIcon,
+  Undo,
+  Redo,
+  Trash2,
+  Download,
+  Square,
+  Circle,
+  Triangle,
+  Minus,
+  ArrowRight,
+  Type,
+  MousePointer,
+  Trash,
+  ChevronDown,
+  Shapes,
+  Settings,
+  Highlighter,
+  Copy,
+  Clipboard,
+  Save,
+  Image,
 } from 'lucide-react';
 
 const ACCESSIBLE_COLORS = [
-  { name: 'Black', value: '#000000' }, 
+  { name: 'Black', value: '#000000' },
   { name: 'Red', value: '#D90429' },
-  { name: 'Blue', value: '#0077B6' }, 
+  { name: 'Blue', value: '#0077B6' },
   { name: 'Green', value: '#06A77D' },
   { name: 'Purple', value: '#7209B7' },
 ];
 
 const STICKY_NOTE_COLORS = [
-  { name: 'Yellow', value: '#FFFACD' }, 
+  { name: 'Yellow', value: '#FFFACD' },
   { name: 'Pink', value: '#FFB6C1' },
-  { name: 'Light Blue', value: '#ADD8E6' }, 
+  { name: 'Light Blue', value: '#ADD8E6' },
   { name: 'Light Green', value: '#90EE90' },
-  { name: 'Orange', value: '#FFE4B5' }, 
+  { name: 'Orange', value: '#FFE4B5' },
   { name: 'Lavender', value: '#E6E6FA' },
 ];
 
@@ -35,9 +54,9 @@ const FILL_COLORS = [
 ];
 
 const LINE_WIDTHS = [
-  { label: 'Thin', value: 2 }, 
+  { label: 'Thin', value: 2 },
   { label: 'Medium', value: 5 },
-  { label: 'Thick', value: 10 }, 
+  { label: 'Thick', value: 10 },
   { label: 'Extra Thick', value: 20 },
 ];
 
@@ -49,23 +68,42 @@ const FONT_SIZES = [
 ];
 
 const Toolbar = ({
-  selectedTool, setSelectedTool,
-  strokeColor, setStrokeColor,
-  fillColor, setFillColor,
-  lineWidth, setLineWidth,
-  fontSize, setFontSize,
-  stickyNoteColor, setStickyNoteColor,
-  toolbarDisplayMode, setToolbarDisplayMode,
-  onUndo, onRedo, onClearFrame, canUndo, canRedo, onDownloadPNG, onDownloadPDF, onDeleteSelected,
-  onCopy, onPaste, onDuplicate, onSave, onClearSaved, hasClipboard,
-  onImageUpload
+  selectedTool,
+  setSelectedTool,
+  strokeColor,
+  setStrokeColor,
+  fillColor,
+  setFillColor,
+  lineWidth,
+  setLineWidth,
+  fontSize,
+  setFontSize,
+  stickyNoteColor,
+  setStickyNoteColor,
+  toolbarDisplayMode,
+  setToolbarDisplayMode,
+  onUndo,
+  onRedo,
+  onClearFrame,
+  canUndo,
+  canRedo,
+  onDownloadPNG,
+  onDownloadPDF,
+  onDeleteSelected,
+  onCopy,
+  onPaste,
+  onDuplicate,
+  onSave,
+  onClearSaved,
+  hasClipboard,
+  onImageUpload,
 }) => {
   const [showShapesDropdown, setShowShapesDropdown] = useState(false);
   const [showDownloadDropdown, setShowDownloadDropdown] = useState(false);
   const [showSettingsPanel, setShowSettingsPanel] = useState(false);
   const [tempDisplayMode, setTempDisplayMode] = useState(toolbarDisplayMode);
   const [dropdownPositions, setDropdownPositions] = useState({});
-  
+
   const shapesDropdownRef = useRef(null);
   const downloadDropdownRef = useRef(null);
   const settingsPanelRef = useRef(null);
@@ -77,27 +115,27 @@ const Toolbar = ({
   // Calculate dropdown position
   const calculateDropdownPosition = (buttonRef, dropdownWidth = 180) => {
     if (!buttonRef.current) return {};
-    
+
     const buttonRect = buttonRef.current.getBoundingClientRect();
     const viewportHeight = window.innerHeight;
     const viewportWidth = window.innerWidth;
-    
+
     // Position above the button by default
     let top = buttonRect.top - 10; // 10px margin above button
     let left = buttonRect.left;
-    
+
     // Adjust if dropdown would go off screen
     if (left + dropdownWidth > viewportWidth) {
       left = viewportWidth - dropdownWidth - 10;
     }
-    
+
     if (top < 10) {
       top = buttonRect.bottom + 10; // Position below if no room above
     }
-    
+
     return { top, left };
   };
-  
+
   const shapeTools = [
     { name: 'rectangle', icon: <Square size={14} className="tool-icon" />, label: 'Rectangle' },
     { name: 'circle', icon: <Circle size={14} className="tool-icon" />, label: 'Circle' },
@@ -107,33 +145,87 @@ const Toolbar = ({
   ];
 
   const mainTools = [
-    { name: 'select', icon: <MousePointer size={14} className="tool-icon" />, label: 'Select', shortcut: 'V' },
+    {
+      name: 'select',
+      icon: <MousePointer size={14} className="tool-icon" />,
+      label: 'Select',
+      shortcut: 'V',
+    },
     { name: 'pen', icon: <PenTool size={14} className="tool-icon" />, label: 'Pen', shortcut: 'P' },
-    { name: 'highlighter', icon: <Highlighter size={14} className="tool-icon" />, label: 'Highlighter', shortcut: 'H' },
-    { name: 'eraser', icon: <Eraser size={14} className="tool-icon" />, label: 'Eraser', shortcut: 'E' },
-    { name: 'sticky', icon: <StickyNoteIcon size={14} className="tool-icon" />, label: 'Sticky Note', shortcut: 'N' },
+    {
+      name: 'highlighter',
+      icon: <Highlighter size={14} className="tool-icon" />,
+      label: 'Highlighter',
+      shortcut: 'H',
+    },
+    {
+      name: 'eraser',
+      icon: <Eraser size={14} className="tool-icon" />,
+      label: 'Eraser',
+      shortcut: 'E',
+    },
+    {
+      name: 'sticky',
+      icon: <StickyNoteIcon size={14} className="tool-icon" />,
+      label: 'Sticky Note',
+      shortcut: 'N',
+    },
     { name: 'text', icon: <Type size={14} className="tool-icon" />, label: 'Text', shortcut: 'T' },
-    { name: 'image', icon: <Image size={14} className="tool-icon" />, label: 'Image', shortcut: 'I' },
+    {
+      name: 'image',
+      icon: <Image size={14} className="tool-icon" />,
+      label: 'Image',
+      shortcut: 'I',
+    },
   ];
 
   const actionTools = [
-    { name: 'undo', icon: <Undo size={14} />, label: 'Undo', action: onUndo, disabled: !canUndo, shortcut: '⌘Z' },
-    { name: 'redo', icon: <Redo size={14} />, label: 'Redo', action: onRedo, disabled: !canRedo, shortcut: '⌘⇧Z' },
+    {
+      name: 'undo',
+      icon: <Undo size={14} />,
+      label: 'Undo',
+      action: onUndo,
+      disabled: !canUndo,
+      shortcut: '⌘Z',
+    },
+    {
+      name: 'redo',
+      icon: <Redo size={14} />,
+      label: 'Redo',
+      action: onRedo,
+      disabled: !canRedo,
+      shortcut: '⌘⇧Z',
+    },
     { name: 'copy', icon: <Copy size={14} />, label: 'Copy', action: onCopy, shortcut: '⌘C' },
-    { name: 'paste', icon: <Clipboard size={14} />, label: 'Paste', action: onPaste, disabled: !hasClipboard, shortcut: '⌘V' },
-    { name: 'delete', icon: <Trash size={14} />, label: 'Delete', action: onDeleteSelected, shortcut: 'Del' },
+    {
+      name: 'paste',
+      icon: <Clipboard size={14} />,
+      label: 'Paste',
+      action: onPaste,
+      disabled: !hasClipboard,
+      shortcut: '⌘V',
+    },
+    {
+      name: 'delete',
+      icon: <Trash size={14} />,
+      label: 'Delete',
+      action: onDeleteSelected,
+      shortcut: 'Del',
+    },
     { name: 'clear', icon: <Trash2 size={14} />, label: 'Clear', action: onClearFrame },
     { name: 'save', icon: <Save size={14} />, label: 'Save', action: onSave, shortcut: '⌘S' },
   ];
 
   // Get current shape icon for shapes button
   const getCurrentShapeIcon = () => {
-    const currentShape = shapeTools.find(shape => shape.name === selectedTool);
+    const currentShape = shapeTools.find((shape) => shape.name === selectedTool);
     return currentShape ? currentShape.icon : <Shapes size={14} className="tool-icon" />;
   };
 
   // Show tool-specific options
-  const showShapeOptions = ['rectangle', 'circle', 'triangle', 'line', 'arrow'].includes(selectedTool);
+  const showShapeOptions = ['rectangle', 'circle', 'triangle', 'line', 'arrow'].includes(
+    selectedTool
+  );
   const showTextOptions = selectedTool === 'text';
   const showStickyOptions = selectedTool === 'sticky';
 
@@ -144,15 +236,27 @@ const Toolbar = ({
       const isShapesButton = shapesButtonRef.current?.contains(event.target);
       const isDownloadButton = downloadButtonRef.current?.contains(event.target);
       const isSettingsButton = settingsButtonRef.current?.contains(event.target);
-      
+
       // Only close if clicking outside both button and dropdown
-      if (!isShapesButton && shapesDropdownRef.current && !shapesDropdownRef.current.contains(event.target)) {
+      if (
+        !isShapesButton &&
+        shapesDropdownRef.current &&
+        !shapesDropdownRef.current.contains(event.target)
+      ) {
         setShowShapesDropdown(false);
       }
-      if (!isDownloadButton && downloadDropdownRef.current && !downloadDropdownRef.current.contains(event.target)) {
+      if (
+        !isDownloadButton &&
+        downloadDropdownRef.current &&
+        !downloadDropdownRef.current.contains(event.target)
+      ) {
         setShowDownloadDropdown(false);
       }
-      if (!isSettingsButton && settingsPanelRef.current && !settingsPanelRef.current.contains(event.target)) {
+      if (
+        !isSettingsButton &&
+        settingsPanelRef.current &&
+        !settingsPanelRef.current.contains(event.target)
+      ) {
         setShowSettingsPanel(false);
       }
     };
@@ -170,7 +274,7 @@ const Toolbar = ({
     e.stopPropagation();
     if (!showShapesDropdown) {
       const position = calculateDropdownPosition(shapesButtonRef, 140);
-      setDropdownPositions(prev => ({ ...prev, shapes: position }));
+      setDropdownPositions((prev) => ({ ...prev, shapes: position }));
     }
     setShowShapesDropdown(!showShapesDropdown);
     // Close other dropdowns
@@ -182,7 +286,7 @@ const Toolbar = ({
     e.stopPropagation();
     if (!showDownloadDropdown) {
       const position = calculateDropdownPosition(downloadButtonRef, 200);
-      setDropdownPositions(prev => ({ ...prev, download: position }));
+      setDropdownPositions((prev) => ({ ...prev, download: position }));
     }
     setShowDownloadDropdown(!showDownloadDropdown);
     // Close other dropdowns
@@ -194,7 +298,7 @@ const Toolbar = ({
     e.stopPropagation();
     if (!showSettingsPanel) {
       const position = calculateDropdownPosition(settingsButtonRef, 280);
-      setDropdownPositions(prev => ({ ...prev, settings: position }));
+      setDropdownPositions((prev) => ({ ...prev, settings: position }));
     }
     setShowSettingsPanel(!showSettingsPanel);
     // Close other dropdowns
@@ -227,12 +331,16 @@ const Toolbar = ({
     if (!file) return;
 
     // Check if it's an image file (by type or extension)
-    const isImage = file.type.startsWith('image/') ||
+    const isImage =
+      file.type.startsWith('image/') ||
       /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico|tiff?|heic|heif|avif)$/i.test(file.name);
 
     if (isImage) {
       // For HEIC/HEIF files, try to convert using canvas if browser doesn't support
-      const isHeic = /\.(heic|heif)$/i.test(file.name) || file.type === 'image/heic' || file.type === 'image/heif';
+      const isHeic =
+        /\.(heic|heif)$/i.test(file.name) ||
+        file.type === 'image/heic' ||
+        file.type === 'image/heif';
 
       if (isHeic) {
         // Try to load HEIC - modern Safari and some browsers support it
@@ -250,7 +358,9 @@ const Toolbar = ({
             onImageUpload?.(pngDataUrl);
           };
           img.onerror = () => {
-            alert('HEIC/HEIF format is not supported by your browser. Please convert the image to PNG or JPEG first using an online converter or your photo app.');
+            alert(
+              'HEIC/HEIF format is not supported by your browser. Please convert the image to PNG or JPEG first using an online converter or your photo app.'
+            );
           };
           img.src = e.target.result;
         };
@@ -348,7 +458,8 @@ const Toolbar = ({
                 </>
               ) : toolbarDisplayMode === 'icons-text' ? (
                 <>
-                  {getCurrentShapeIcon()} <span className="tool-label">Shapes</span> <ChevronDown size={12} />
+                  {getCurrentShapeIcon()} <span className="tool-label">Shapes</span>{' '}
+                  <ChevronDown size={12} />
                 </>
               ) : (
                 <>
@@ -357,9 +468,9 @@ const Toolbar = ({
               )}
             </button>
             <DropdownPortal show={showShapesDropdown}>
-              <div 
+              <div
                 ref={shapesDropdownRef}
-                className="dropdown-menu shapes-dropdown" 
+                className="dropdown-menu shapes-dropdown"
                 style={{
                   top: `${dropdownPositions.shapes?.top || 0}px`,
                   left: `${dropdownPositions.shapes?.left || 0}px`,
@@ -411,14 +522,14 @@ const Toolbar = ({
                 onClick={() => setLineWidth(widthOption.value)}
                 title={widthOption.label}
               >
-                <span 
+                <span
                   className="line-preview"
-                  style={{ 
-                    display: 'inline-block', 
-                    width: '16px', 
-                    height: `${Math.min(widthOption.value, 12)}px`, 
-                    backgroundColor: strokeColor === '#ffffff' ? '#cccccc' : strokeColor, 
-                    borderRadius: '2px' 
+                  style={{
+                    display: 'inline-block',
+                    width: '16px',
+                    height: `${Math.min(widthOption.value, 12)}px`,
+                    backgroundColor: strokeColor === '#ffffff' ? '#cccccc' : strokeColor,
+                    borderRadius: '2px',
                   }}
                 ></span>
               </button>
@@ -459,7 +570,8 @@ const Toolbar = ({
                 </>
               ) : toolbarDisplayMode === 'icons-text' ? (
                 <>
-                  <Download size={14} /> <span className="tool-label">Download</span> <ChevronDown size={12} />
+                  <Download size={14} /> <span className="tool-label">Download</span>{' '}
+                  <ChevronDown size={12} />
                 </>
               ) : (
                 <>
@@ -468,7 +580,7 @@ const Toolbar = ({
               )}
             </button>
             <DropdownPortal show={showDownloadDropdown}>
-              <div 
+              <div
                 ref={downloadDropdownRef}
                 className="dropdown-menu download-dropdown"
                 style={{
@@ -508,9 +620,9 @@ const Toolbar = ({
             >
               <Settings size={14} />
             </button>
-            
+
             <DropdownPortal show={showSettingsPanel}>
-              <div 
+              <div
                 ref={settingsPanelRef}
                 className="settings-panel"
                 style={{
@@ -601,13 +713,14 @@ const Toolbar = ({
                   <button
                     key={color.value}
                     className={`color-button fill-button ${fillColor === color.value ? 'active' : ''}`}
-                    style={{ 
+                    style={{
                       backgroundColor: color.value === 'transparent' ? '#ffffff' : color.value,
-                      backgroundImage: color.value === 'transparent' 
-                        ? 'linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%, #ccc), linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%, #ccc)'
-                        : 'none',
+                      backgroundImage:
+                        color.value === 'transparent'
+                          ? 'linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%, #ccc), linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%, #ccc)'
+                          : 'none',
                       backgroundSize: '6px 6px',
-                      backgroundPosition: '0 0, 3px 3px'
+                      backgroundPosition: '0 0, 3px 3px',
                     }}
                     onClick={() => setFillColor(color.value)}
                     title={color.name}

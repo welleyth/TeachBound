@@ -1,0 +1,31 @@
+# Maintainers: Andrii Stolitnii <andrii.stolitnii@student.uj.edu.pl>, Eduard Tykhoniuk <eduard.tykhoniuk@student.uj.edu.pl>, Yuliia Tatarinova <yuliia.tatarinova@student.uj.edu.pl>
+pkgname=('TeachBound-host')
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Digital Whiteboard for Education and Collaboration (Server)"
+arch=(any)
+url="https://github.com/Student-Team-Projects/TeachBound"
+license=('CC BY-NC 4.0')
+depends=('nodejs')
+makedepends=('npm')
+source=("TeachBound::git+https://github.com/Student-Team-Projects/TeachBound.git#branch=add-libp2p"
+  "binary.sh" "teachbound-host.service")
+sha256sums=('SKIP' 'SKIP' 'SKIP')
+options=('!strip')
+
+build() {
+  cd "$srcdir/TeachBound/TeachBound-host"
+  npm ci
+}
+
+package() {
+  install -Dm755 binary.sh "$pkgdir/usr/bin/teachbound-host"
+  install -Dm644 "teachbound-host.service" \
+    "$pkgdir/usr/lib/systemd/user/teachbound-host.service"
+
+
+  cd "$srcdir/TeachBound/TeachBound-host"
+  install -d "$pkgdir/usr/share/teachbound-host"
+  cp -r . "$pkgdir/usr/share/teachbound-host"
+}
+
